@@ -75,7 +75,7 @@ impl<C: crate::backend::cameras::CameraBackendCamera + 'static> CameraFeed<C> {
         })
         .await
         .expect("capture_still task terminated unexpectedly")?;
-        Ok(image_postprocessing(frame, postprocessing_options))
+        Ok(frame)
     }
 
     /// Take an image outside of the normal video capture cycle
@@ -89,7 +89,7 @@ impl<C: crate::backend::cameras::CameraBackendCamera + 'static> CameraFeed<C> {
             .expect("failed to lock camera mutex")
             .capture_still_frame()
             .map(|x| image_postprocessing(x, postprocessing_options))?;
-        Ok(image_postprocessing(frame, postprocessing_options))
+        Ok(frame)
     }
 
     pub fn update(&mut self, message: CameraMessage) -> Task<CameraMessage> {
