@@ -378,14 +378,14 @@ impl<
             }
             MainAppMessage::EmailSubmit => {
                 log::debug!("Email submit triggered. Current emails: {:?}", self.emails);
-                if self.upload_handle.is_none() {
-                    log::warn!("Didn't finish uploading.");
-                    return Task::none();
-                }
                 if self.emails[0].len() > 0 {
                     self.emails.splice(0..0, ["".to_string()]);
                     Task::none()
                 } else {
+                    if self.upload_handle.is_none() {
+                        log::warn!("Didn't finish uploading.");
+                        return Task::none();
+                    }
                     self.emails.splice(0..1, []);
                     self.student_id = String::new();
                     self.state = MainAppState::StudentIDEntry;
