@@ -841,8 +841,8 @@ impl<
                         )
                         .center(Length::Fill)
                         .into(),
-                        title_text("We're emailing your photos now.").into(),
-                        supporting_text("Check your inbox to download your pictures.").into(),
+                        title_text("We're processing your photos now.").into(),
+                        supporting_text("If you entered your email, check your inbox to download your pictures.").into(),
                         vertical_space().height(12.0).into(),
                         progress_bar(0.0..=1.0, progress_timeline.value())
                             .height(8.0)
