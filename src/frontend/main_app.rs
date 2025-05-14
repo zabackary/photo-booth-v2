@@ -2,11 +2,12 @@ use std::time::Duration;
 
 use anim::Animation;
 use iced::{
+    border::Radius,
     widget::{
         column, container, horizontal_space, image::Handle, progress_bar, row, text,
         vertical_space, Space,
     },
-    Alignment, Color, ContentFit, Element, Length, Task,
+    Alignment, Border, Color, ContentFit, Element, Length, Padding, Task,
 };
 use image::RgbaImage;
 
@@ -595,14 +596,14 @@ impl<
                             .easing(&loading_spinners::easing::STANDARD_DECELERATE)
                             .into(),
                         text("Uploading photos in the background...").into()
-                    ]).spacing(8)).into()
+                    ]).spacing(8).align_y(Alignment::Center)).into()
                 ]).into(),
                 MainAppState::EmailEntry => iced::widget::stack([
                     title_overlay(
                         row([
                             column([
-                                title_text("Enter your email addresses").into(),
-                                supporting_text("Start typing to add an email.").into(),
+                                title_text("Enter your email addresses").width(Length::Shrink).into(),
+                                supporting_text("Start typing to add an email.").width(Length::Shrink).into(),
                                 vertical_space().height(12.0).into(),
                                 container(
                                     column([
@@ -646,7 +647,7 @@ impl<
                                                                 background: Color::WHITE,
                                                                 cell: Color::BLACK
                                                             })
-                                                        ).center((QR_CODE_SIDE_LENGTH * 8) as u16).padding(8)
+                                                        ).width((QR_CODE_SIDE_LENGTH * 8) as u16).height((QR_CODE_SIDE_LENGTH * 8) as u16).padding(8)
                                                     } else {
                                                         container(
                                                             column([
@@ -672,7 +673,12 @@ impl<
                                                                 iced::widget::text(email.as_str())
                                                                     .size(24)
                                                             ).width(Length::Fill)
-                                                                .padding(10)
+                                                                .padding(Padding {
+                                                                    bottom: 10.0,
+                                                                    left: 16.0,
+                                                                    right: 16.0,
+                                                                    top: 10.0,
+                                                                })
                                                                 .style(|theme: &iced::Theme| container::Style {
                                                                     background: Some(
                                                                         theme.extended_palette().background.strong.color.into(),
@@ -680,6 +686,7 @@ impl<
                                                                     text_color: Some(
                                                                         theme.extended_palette().background.strong.text,
                                                                     ),
+                                                                    border: Border::default().rounded(999.0),
                                                                     ..Default::default()
                                                                 }).into()
                                                         }),
@@ -689,8 +696,9 @@ impl<
                                         .padding(12)
                                         .style(|theme: &iced::Theme| container::Style {
                                             background: Some(
-                                                theme.extended_palette().background.base.color.into(),
+                                                theme.extended_palette().background.base.color.scale_alpha(0.3).into(),
                                             ),
+                                            border: Border::default().rounded(36.0),
                                             ..Default::default()
                                         })
                                         .width(Length::Fill)
@@ -703,30 +711,44 @@ impl<
                                                     .size(18)
                                                     .into(),
                                             ]).align_x(Alignment::Center)
-                                        ).height(Length::Fill).into()
+                                        ).into()
                                     ])
                                     .align_x(Alignment::Center),
                                 )
                                 .center(Length::Fill)
+                                .max_width(700.0)
                                 .into(),
                             ])
-                            .padding(30)
+                            .padding(100)
+                            .align_x(Alignment::Center)
                             .width(Length::Fill)
-                            .height(Length::Fill)
                             .into(),
                             horizontal_space().width(12.0).into(),
-                            column([
-                                supporting_text("Your photos").into(),
-                                vertical_space().height(12.0).into(),
-                                iced::widget::image(self.strip_handle.as_ref().unwrap().clone())
-                                    .height(Length::Fill)
-                                    .content_fit(ContentFit::Contain)
-                                    .into(),
-                            ])
-                            .align_x(Alignment::Center)
-                            .padding(30)
+                            container(
+                                column([
+                                    supporting_text("Your photos").width(Length::Shrink).into(),
+                                    vertical_space().height(12.0).into(),
+                                    iced::widget::image(self.strip_handle.as_ref().unwrap().clone())
+                                        .height(Length::Fill)
+                                        .content_fit(ContentFit::Contain)
+                                        .into(),
+                                ])
+                                .align_x(Alignment::Center)
+                                .padding(30)
+                            ).style(|theme: &iced::Theme| container::Style {
+                                background: Some(
+                                    theme.extended_palette().background.base.color.scale_alpha(0.8).into(),
+                                ),
+                                border: Border::default().rounded(Radius {
+                                    bottom_left: 24.0,
+                                    bottom_right: 0.0,
+                                    top_left: 24.0,
+                                    top_right: 0.0,
+                                }),
+                                ..Default::default()
+                            })
                             .into(),
-                        ]),
+                        ]).align_y(Alignment::Center),
                         false,
                     ).into(),
                     if self.upload_handle.is_none() {
@@ -737,7 +759,7 @@ impl<
                                 .easing(&loading_spinners::easing::STANDARD_DECELERATE)
                                 .into(),
                             text("Uploading photos in the background...").into()
-                        ]).spacing(8)).into()
+                        ]).spacing(8).align_y(Alignment::Center)).into()
                     } else {
                         "".into()
                     }
@@ -746,8 +768,8 @@ impl<
                     iced::widget::column([
                         container(
                             loading_spinners::Circular::new()
-                                .size(40.0)
-                                .bar_height(4.0)
+                                .size(90.0)
+                                .bar_height(9.0)
                                 .easing(&loading_spinners::easing::STANDARD_DECELERATE),
                         )
                         .center(Length::Fill)
