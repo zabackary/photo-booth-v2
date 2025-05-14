@@ -229,11 +229,13 @@ impl super::ServerBackend for SupabaseBackend {
             .token(&["https://www.googleapis.com/auth/drive"])
             .await
             .map_err(SupabaseBackendError::GcpAuth)?;
-        let emails_content = emails.join("\n");
+        let emails_content = json!({
+            "emails": emails,
+        });
         upload_file(
-            emails_content.as_bytes().to_vec(),
-            "emails.txt".to_string(),
-            "text/plain",
+            emails_content.to_string().into_bytes(),
+            "metadata.json".to_string(),
+            "application/json",
             handle.folder_id.clone(),
             self.client.clone(),
             token.clone(),
