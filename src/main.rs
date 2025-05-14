@@ -174,17 +174,15 @@ fn main() -> iced::Result {
     .font(include_bytes!(
         "../assets/fonts/Noto_Color_Emoji/NotoColorEmoji-Regular.ttf"
     ))
-    .font(include_bytes!(
-        "../assets/fonts/Montserrat/Montserrat-Regular.ttf"
-    ))
-    .default_font(Font::with_name("Montserrat"))
+    .font(include_bytes!("../assets/fonts/Kenao.ttf"))
+    .default_font(Font::with_name("KENAO"))
     .theme(|_| {
         iced::Theme::custom(
-            "CAJ".to_owned(),
+            "Formal".to_owned(),
             Palette {
-                background: iced::Color::from_rgb8(0xbb, 0xbb, 0xdd),
-                text: iced::Color::from_rgb8(0xff, 0xff, 0xff),
-                primary: iced::Color::from_rgb8(0x01, 0x00, 0x80),
+                background: iced::Color::from_rgb8(0xf0, 0xd0, 0xc5),
+                text: iced::Color::from_rgb8(0x70, 0x60, 0x5b),
+                primary: iced::Color::from_rgb8(0xf0, 0x94, 0x75),
                 success: iced::Color::from_rgb8(0x00, 0xff, 0x00),
                 danger: iced::Color::from_rgb8(0xff, 0x00, 0x00),
             },
