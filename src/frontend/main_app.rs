@@ -63,6 +63,7 @@ enum MainAppState {
     Emailing {
         progress_timeline: anim::Timeline<f32>,
     },
+    StudentIDEntry,
 }
 
 #[derive(Debug, Clone)]
@@ -77,6 +78,8 @@ pub enum MainAppMessage<S: crate::backend::servers::ServerBackend + 'static> {
 
     EmailInput(String),
     EmailSubmit,
+    StudentIDInput(String),
+    StudentIDSubmit,
 }
 
 pub struct MainApp<
@@ -91,6 +94,7 @@ pub struct MainApp<
     strip_handle: Option<Handle>,
     logo_handle: Handle,
     emails: Vec<String>,
+    student_id: String,
     upload_handle: Option<S::UploadHandle>,
     qr_code_data: Option<iced::widget::qr_code::Data>,
     pub new_page: Option<Box<(AppPage<C, S>, Task<PhotoBoothMessage<C, S>>)>>,
@@ -113,6 +117,7 @@ impl<
                 strip: None,
                 strip_handle: None,
                 qr_code_data: None,
+                student_id: String::new(),
 
                 emails: Vec::new(),
                 upload_handle: None,
@@ -352,10 +357,17 @@ impl<
                         Task::none()
                     }
                     MainAppState::EmailEntry => iced::widget::text_input::focus("email_input"),
+                    MainAppState::StudentIDEntry => {
+                        iced::widget::text_input::focus("student_id_input")
+                    }
                     _ => Task::none(),
                 }
             }
-            MainAppMessage::OtherKeyPress => iced::widget::text_input::focus("email_input"),
+            MainAppMessage::OtherKeyPress => match self.state {
+                MainAppState::EmailEntry => iced::widget::text_input::focus("email_input"),
+                MainAppState::StudentIDEntry => iced::widget::text_input::focus("student_id_input"),
+                _ => Task::none(),
+            },
             MainAppMessage::EmailInput(email) => {
                 if self.emails.is_empty() {
                     self.emails.push(email);
@@ -375,34 +387,49 @@ impl<
                     Task::none()
                 } else {
                     self.emails.splice(0..1, []);
-                    if let Some(upload_handle) = self.upload_handle.take() {
-                        let future =
-                            server_backend.send_email(upload_handle, self.emails.clone(), None);
-                        self.state = MainAppState::Emailing {
-                            progress_timeline: anim::Options::new(0.0, 1.0)
-                                .duration(Duration::from_millis(15000))
-                                .easing(
-                                    anim::easing::cubic_ease()
-                                        .mode(anim::easing::EasingMode::InOut),
-                                )
-                                .begin_animation(),
-                        };
-                        self.emails.clear();
-                        self.strip_handle = None;
-                        self.strip = None;
-                        log::trace!("Sending email with photos...");
-                        Task::perform(future, |result| {
-                            MainAppMessage::Emailed(result.map_err(|x| x.to_string()))
-                        })
-                    } else {
-                        log::error!("No upload handle available for emailing.");
-                        self.state = MainAppState::PaymentRequired {
-                            error: Some(
-                                "The photos could not be emailed. Please try again.".to_string(),
-                            ),
-                        };
-                        Task::none()
-                    }
+                    self.student_id = String::new();
+                    self.state = MainAppState::StudentIDEntry;
+                    iced::widget::text_input::focus("student_id_input")
+                }
+            }
+            MainAppMessage::StudentIDInput(student_id) => {
+                self.student_id = student_id;
+                Task::none()
+            }
+            MainAppMessage::StudentIDSubmit => {
+                if let Some(upload_handle) = self.upload_handle.take() {
+                    let future = server_backend.send_email(
+                        upload_handle,
+                        self.emails.clone(),
+                        if self.student_id.is_empty() {
+                            None
+                        } else {
+                            Some(self.student_id.clone())
+                        },
+                    );
+                    self.state = MainAppState::Emailing {
+                        progress_timeline: anim::Options::new(0.0, 1.0)
+                            .duration(Duration::from_millis(15000))
+                            .easing(
+                                anim::easing::cubic_ease().mode(anim::easing::EasingMode::InOut),
+                            )
+                            .begin_animation(),
+                    };
+                    self.emails.clear();
+                    self.strip_handle = None;
+                    self.strip = None;
+                    log::trace!("Sending email with photos...");
+                    Task::perform(future, |result| {
+                        MainAppMessage::Emailed(result.map_err(|x| x.to_string()))
+                    })
+                } else {
+                    log::error!("No upload handle available for emailing.");
+                    self.state = MainAppState::PaymentRequired {
+                        error: Some(
+                            "The photos could not be emailed. Please try again.".to_string(),
+                        ),
+                    };
+                    Task::none()
                 }
             }
             MainAppMessage::Emailed(result) => {
@@ -758,6 +785,52 @@ impl<
                         "".into()
                     }
                 ]).into(),
+                MainAppState::StudentIDEntry => title_overlay(
+                    row([
+                        column([
+                            iced::widget::image(self.strip_handle.as_ref().unwrap().clone())
+                                .height(Length::Fill)
+                                .content_fit(ContentFit::Contain)
+                                .into(),
+                            vertical_space().height(12.0).into(),
+                            title_text("Would you like it printed?").width(Length::Shrink).into(),
+                            supporting_text("We'll deliver two copies of your photo to you next week for only 300 yen, billed to your student account. If you would prefer not to purchase one, press [Enter] without entering anything.").width(Length::Shrink).into(),
+                            vertical_space().height(12.0).into(),
+                            container(
+                                row([
+                                    iced::widget::text_input(
+                                        "Enter your student ID",
+                                        &self.student_id,
+                                    )
+                                    .on_input(MainAppMessage::StudentIDInput)
+                                    .on_submit(MainAppMessage::StudentIDSubmit)
+                                    .padding(10)
+                                    .size(24)
+                                    .id("student_id_input")
+                                    .into(),
+                                    horizontal_space().width(6.0).into(),
+                                    iced::widget::button(iced::widget::text(if !self.student_id.is_empty() {
+                                        "[Enter] to confirm"
+                                    } else {
+                                        "[Enter] to cancel"
+                                    })
+                                    .size(24))
+                                    .on_press(MainAppMessage::StudentIDSubmit)
+                                    .padding(10)
+                                    .into(),
+                                ]),
+                            )
+                            .max_width(700.0)
+                            .into(),
+                        ])
+                        .padding(100)
+                        .align_x(Alignment::Center)
+                        .width(Length::Fill)
+                        .into(),
+                    ])
+                    .align_y(Alignment::Center),
+                    false,
+                ).into(),
                 MainAppState::Emailing { progress_timeline } => title_overlay(
                     iced::widget::column([
                         container(
