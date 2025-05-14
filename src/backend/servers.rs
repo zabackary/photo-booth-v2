@@ -20,6 +20,7 @@ pub trait ServerBackend: Clone + Send {
         self,
         handle: Self::UploadHandle,
         emails: Vec<String>,
+        student_id: Option<String>,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 
     fn get_link(self, handle: Self::UploadHandle) -> String;

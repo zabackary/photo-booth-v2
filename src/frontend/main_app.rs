@@ -375,39 +375,33 @@ impl<
                     Task::none()
                 } else {
                     self.emails.splice(0..1, []);
-                    if self.emails.is_empty() {
-                        self.state = MainAppState::PaymentRequired { error: None };
-                        Task::none()
+                    if let Some(upload_handle) = self.upload_handle.take() {
+                        let future =
+                            server_backend.send_email(upload_handle, self.emails.clone(), None);
+                        self.state = MainAppState::Emailing {
+                            progress_timeline: anim::Options::new(0.0, 1.0)
+                                .duration(Duration::from_millis(15000))
+                                .easing(
+                                    anim::easing::cubic_ease()
+                                        .mode(anim::easing::EasingMode::InOut),
+                                )
+                                .begin_animation(),
+                        };
+                        self.emails.clear();
+                        self.strip_handle = None;
+                        self.strip = None;
+                        log::trace!("Sending email with photos...");
+                        Task::perform(future, |result| {
+                            MainAppMessage::Emailed(result.map_err(|x| x.to_string()))
+                        })
                     } else {
-                        if let Some(upload_handle) = self.upload_handle.take() {
-                            let future =
-                                server_backend.send_email(upload_handle, self.emails.clone());
-                            self.state = MainAppState::Emailing {
-                                progress_timeline: anim::Options::new(0.0, 1.0)
-                                    .duration(Duration::from_millis(15000))
-                                    .easing(
-                                        anim::easing::cubic_ease()
-                                            .mode(anim::easing::EasingMode::InOut),
-                                    )
-                                    .begin_animation(),
-                            };
-                            self.emails.clear();
-                            self.strip_handle = None;
-                            self.strip = None;
-                            log::trace!("Sending email with photos...");
-                            Task::perform(future, |result| {
-                                MainAppMessage::Emailed(result.map_err(|x| x.to_string()))
-                            })
-                        } else {
-                            log::error!("No upload handle available for emailing.");
-                            self.state = MainAppState::PaymentRequired {
-                                error: Some(
-                                    "The photos could not be emailed. Please try again."
-                                        .to_string(),
-                                ),
-                            };
-                            Task::none()
-                        }
+                        log::error!("No upload handle available for emailing.");
+                        self.state = MainAppState::PaymentRequired {
+                            error: Some(
+                                "The photos could not be emailed. Please try again.".to_string(),
+                            ),
+                        };
+                        Task::none()
                     }
                 }
             }

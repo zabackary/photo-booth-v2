@@ -219,6 +219,7 @@ impl super::ServerBackend for SupabaseBackend {
         self,
         handle: Self::UploadHandle,
         emails: Vec<String>,
+        student_id: Option<String>,
     ) -> Result<bool, Self::Error> {
         let service_account = gcp_auth::CustomServiceAccount::from_json(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -231,6 +232,7 @@ impl super::ServerBackend for SupabaseBackend {
             .map_err(SupabaseBackendError::GcpAuth)?;
         let emails_content = json!({
             "emails": emails,
+            "studentId": student_id,
         });
         upload_file(
             emails_content.to_string().into_bytes(),
