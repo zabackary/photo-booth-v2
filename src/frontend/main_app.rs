@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use anim::Animation;
+use dotenv_codegen::dotenv;
 use iced::{
     border::Radius,
     widget::{
@@ -11,7 +12,7 @@ use iced::{
 };
 use image::RgbaImage;
 
-use crate::{backend::render_take::render_take, AppPage, KeyMessage, PhotoBoothMessage};
+use crate::{backend::render_take::render_take, AppPage, KeyMessage, PhotoBoothMessage, PALETTE};
 
 use super::{
     camera_feed::{CameraFeed, CameraFeedOptions},
@@ -73,7 +74,7 @@ pub enum MainAppMessage<S: crate::backend::servers::ServerBackend + 'static> {
     KeyReleased(KeyMessage),
     CaptureStill,
     Uploaded(Result<S::UploadHandle, String>),
-    Emailed(Result<bool, String>),
+    Emailed(Result<(), String>),
     OtherKeyPress,
 
     EmailInput(String),
@@ -298,6 +299,12 @@ impl<
                         Task::none()
                     }
                 }
+                MainAppState::Emailing { progress_timeline } => {
+                    if progress_timeline.update().is_completed() {
+                        self.state = MainAppState::PaymentRequired { error: None };
+                    }
+                    Task::none()
+                }
                 _ => Task::none(),
             },
             MainAppMessage::Uploaded(result) => {
@@ -406,9 +413,10 @@ impl<
                         } else {
                             Some(self.student_id.clone())
                         },
+                        iced::theme::palette::Extended::generate(PALETTE),
                     );
                     self.state = MainAppState::Emailing {
-                        progress_timeline: anim::Options::new(0.0, 1.0)
+                        progress_timeline: anim::Options::new(0.0, 0.8)
                             .duration(Duration::from_millis(15000))
                             .easing(
                                 anim::easing::cubic_ease().mode(anim::easing::EasingMode::InOut),
@@ -438,32 +446,20 @@ impl<
                     MainAppState::Emailing {
                         ref mut progress_timeline,
                     } => match result {
-                        Ok(all_success) => {
-                            if all_success {
-                                *progress_timeline =
-                                    anim::Options::new(progress_timeline.value(), 1.0)
-                                        .duration(Duration::from_millis(1000))
-                                        .easing(
-                                            anim::easing::cubic_ease()
-                                                .mode(anim::easing::EasingMode::InOut),
-                                        )
-                                        .begin_animation();
-                                self.state = MainAppState::PaymentRequired { error: None };
-                            } else {
-                                self.state = MainAppState::PaymentRequired {
-                                    error: Some(
-                                        "Some email addresses provided could not be reached. Please contact photobooth@caj.ac.jp for assistance."
-                                            .to_string(),
-                                    ),
-                                };
-                            }
+                        Ok(_) => {
+                            *progress_timeline = anim::Options::new(progress_timeline.value(), 1.0)
+                                .duration(Duration::from_millis(1000))
+                                .easing(
+                                    anim::easing::cubic_ease()
+                                        .mode(anim::easing::EasingMode::InOut),
+                                )
+                                .begin_animation();
                             Task::none()
                         }
                         Err(err) => {
                             self.state = MainAppState::PaymentRequired {
                                 error: Some(
-                                    "The photos could not be emailed. Please try again."
-                                        .to_string(),
+                                    format!("We had a problem sending your photos. They have been saved; please contact {} for assistance. {}", env!("CONTACT_EMAIL"), err),
                                 ),
                             };
                             log::error!("Error emailing photos: {}", err);
@@ -511,7 +507,7 @@ impl<
                                     .size(24)
                                     .into(),
                                     vertical_space().height(12).into(),
-                                    iced::widget::text("By using this photo booth, you consent to having your photos uploaded and processed by our servers and Google Drive.")
+                                    iced::widget::text(dotenv!("PRIVACY_NOTE"))
                                         .size(18)
                                         .into(),
                                 vertical_space().height(12).into(),
@@ -520,6 +516,9 @@ impl<
                                         vertical_space().height(12).into(),
                                         container(column([iced::widget::text(
                                             error_message
+                                        )
+                                        .shaping(
+                                            iced::widget::text::Shaping::Advanced,
                                         )
                                         .size(16)
                                         .into()]))

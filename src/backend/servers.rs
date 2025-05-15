@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Display};
 
+use iced::theme::palette;
 use image::RgbaImage;
 
 pub mod server;
@@ -21,7 +22,8 @@ pub trait ServerBackend: Clone + Send {
         handle: Self::UploadHandle,
         emails: Vec<String>,
         student_id: Option<String>,
-    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
+        palette: palette::Extended,
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send;
 
     fn get_link(self, handle: Self::UploadHandle) -> String;
 }

@@ -13,6 +13,40 @@ use iced::{keyboard::Key, theme::Palette, Font, Task};
 mod backend;
 mod frontend;
 
+const PALETTE: Palette = Palette {
+    background: iced::Color {
+        r: 0xf0 as f32 / 255.0,
+        g: 0xd0 as f32 / 255.0,
+        b: 0xc5 as f32 / 255.0,
+        a: 1.0,
+    },
+    text: iced::Color {
+        r: 0x70 as f32 / 255.0,
+        g: 0x60 as f32 / 255.0,
+        b: 0x5b as f32 / 255.0,
+        a: 1.0,
+    },
+    primary: iced::Color {
+        r: 0xf0 as f32 / 255.0,
+        g: 0x94 as f32 / 255.0,
+        b: 0x75 as f32 / 255.0,
+        a: 1.0,
+    },
+    success: iced::Color {
+        r: 0x00 as f32 / 255.0,
+        g: 0xff as f32 / 255.0,
+        b: 0x00 as f32 / 255.0,
+
+        a: 1.0,
+    },
+    danger: iced::Color {
+        r: 0xff as f32 / 255.0,
+        g: 0x00 as f32 / 255.0,
+        b: 0x00 as f32 / 255.0,
+        a: 1.0,
+    },
+};
+
 enum AppPage<
     C: crate::backend::cameras::CameraBackend + 'static,
     S: crate::backend::servers::ServerBackend + 'static,
@@ -176,18 +210,7 @@ fn main() -> iced::Result {
     ))
     .font(include_bytes!("../assets/fonts/Kenao.ttf"))
     .default_font(Font::with_name("KENAO"))
-    .theme(|_| {
-        iced::Theme::custom(
-            "Formal".to_owned(),
-            Palette {
-                background: iced::Color::from_rgb8(0xf0, 0xd0, 0xc5),
-                text: iced::Color::from_rgb8(0x70, 0x60, 0x5b),
-                primary: iced::Color::from_rgb8(0xf0, 0x94, 0x75),
-                success: iced::Color::from_rgb8(0x00, 0xff, 0x00),
-                danger: iced::Color::from_rgb8(0xff, 0x00, 0x00),
-            },
-        )
-    })
+    .theme(|_| iced::Theme::custom("Formal".to_owned(), PALETTE))
     .subscription(PhotoBoothApplication::subscription)
     .run_with(|| {
         let server_backend = ServerBackend::new().expect("failed to initialize server backend");

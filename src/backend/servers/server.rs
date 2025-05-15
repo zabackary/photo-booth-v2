@@ -2,6 +2,7 @@ use std::{fmt::Display, io::Cursor};
 
 use dotenv_codegen::dotenv;
 use gcp_auth::TokenProvider;
+use iced::{theme::palette, Color};
 use image::RgbaImage;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
@@ -11,6 +12,13 @@ use reqwest::{
 use serde_json::json;
 use tokio::try_join;
 
+fn color_hex(color: Color) -> String {
+    let r = (color.r * 255.0) as u32;
+    let g = (color.g * 255.0) as u32;
+    let b = (color.b * 255.0) as u32;
+    format!("{:02x}{:02x}{:02x}", r, g, b)
+}
+
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct PartialFileMetadata {
     id: String,
@@ -19,11 +27,30 @@ struct PartialFileMetadata {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct PartialEmailMetadata {
     status: String,
+    #[serde(rename = "failedAddresses")]
+    failed_addresses: Option<Vec<String>>,
+    message: Option<String>,
 }
 
 impl PartialEmailMetadata {
     fn is_success(&self) -> bool {
         self.status == "success"
+    }
+
+    fn error_message(&self) -> Option<String> {
+        if self.status == "error" {
+            Some(self.message.clone().unwrap_or_default())
+        } else if self.status == "partial" {
+            Some(format!(
+                "Some email addresses provided could not be reached: {}",
+                self.failed_addresses
+                    .as_ref()
+                    .expect("no address list for failure")
+                    .join(", ")
+            ))
+        } else {
+            None
+        }
     }
 }
 
@@ -43,6 +70,7 @@ pub enum SupabaseBackendError {
     Reqwest(reqwest::Error),
     GcpAuth(gcp_auth::Error),
     ImageEncodeDecode(image::ImageError),
+    BackendError(String),
 }
 
 impl Display for SupabaseBackendError {
@@ -51,6 +79,7 @@ impl Display for SupabaseBackendError {
             Self::Reqwest(err) => write!(f, "reqwest error: {}", err),
             Self::GcpAuth(err) => write!(f, "service account authorization error: {}", err),
             Self::ImageEncodeDecode(err) => write!(f, "image encode/decode error: {}", err),
+            Self::BackendError(err) => write!(f, "error: {}", err),
         }
     }
 }
@@ -220,7 +249,8 @@ impl super::ServerBackend for SupabaseBackend {
         handle: Self::UploadHandle,
         emails: Vec<String>,
         student_id: Option<String>,
-    ) -> Result<bool, Self::Error> {
+        palette: palette::Extended,
+    ) -> Result<(), Self::Error> {
         let service_account = gcp_auth::CustomServiceAccount::from_json(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/service_account_key.json"
@@ -245,22 +275,48 @@ impl super::ServerBackend for SupabaseBackend {
         .await?;
 
         // send a POST request to ENDPOINT_URL with the folderId in JSON in the body
-        let endpoint_url = dotenv!("ENDPOINT_URL");
-        let body = json!({
-            "folderId": handle.folder_id,
-        });
+        if !emails.is_empty() {
+            let endpoint_url = dotenv!("ENDPOINT_URL");
 
-        let client = reqwest::Client::new();
-        let res = client
-            .post(endpoint_url)
-            .json(&body)
-            .send()
-            .await
-            .map_err(SupabaseBackendError::Reqwest)?;
-        let email_response: PartialEmailMetadata =
-            res.json().await.map_err(SupabaseBackendError::Reqwest)?;
+            let body = json!({
+                "folderId": handle.folder_id,
+                "backgroundBaseColor": color_hex(palette.background.base.color),
+                "backgroundBaseText": color_hex(palette.background.base.text),
+                "primaryBaseColor": color_hex(palette.primary.base.color),
+                "backgroundWeakColor": color_hex(palette.background.weak.color),
+                "backgroundWeakText": color_hex(palette.background.weak.text),
+                "eventName": dotenv!("EVENT_NAME"),
+                "privacyNote": dotenv!("PRIVACY_NOTE"),
+                "contactEmail": dotenv!("CONTACT_EMAIL"),
+            });
 
-        Ok(email_response.is_success())
+            let res = self
+                .client
+                .post(endpoint_url)
+                .json(&body)
+                .send()
+                .await
+                .map_err(SupabaseBackendError::Reqwest)?;
+            let email_response: PartialEmailMetadata =
+                res.json().await.map_err(SupabaseBackendError::Reqwest)?;
+
+            if email_response.is_success() {
+                log::debug!("Email sent successfully");
+
+                Ok(())
+            } else {
+                log::error!(
+                    "Error sending email: {}",
+                    email_response.error_message().unwrap_or_default()
+                );
+                Err(SupabaseBackendError::BackendError(
+                    email_response.error_message().unwrap_or_default(),
+                ))
+            }
+        } else {
+            log::debug!("No emails provided, skipping email sending");
+            Ok(())
+        }
     }
 
     fn get_link(self, handle: Self::UploadHandle) -> String {
