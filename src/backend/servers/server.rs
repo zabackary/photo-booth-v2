@@ -16,7 +16,7 @@ fn color_hex(color: Color) -> String {
     let r = (color.r * 255.0) as u32;
     let g = (color.g * 255.0) as u32;
     let b = (color.b * 255.0) as u32;
-    format!("{:02x}{:02x}{:02x}", r, g, b)
+    format!("#{:02x}{:02x}{:02x}", r, g, b)
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
