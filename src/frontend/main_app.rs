@@ -17,7 +17,7 @@ use crate::{backend::render_take::render_take, AppPage, KeyMessage, PhotoBoothMe
 use super::{
     camera_feed::{CameraFeed, CameraFeedOptions},
     loading_spinners,
-    title_overlay::{supporting_text, title_overlay, title_text},
+    title_overlay::{full_title_overlay, supporting_text, title_overlay, title_text},
 };
 
 mod animations;
@@ -29,6 +29,8 @@ const PHOTO_COUNT: usize = 4;
 const QR_CODE_QUIET_ZONE: usize = 2;
 const QR_CODE_VERSION: iced::widget::qr_code::Version = iced::widget::qr_code::Version::Normal(5);
 const QR_CODE_SIDE_LENGTH: usize = QR_CODE_QUIET_ZONE * 2 + (5 * 4 + 17);
+
+const EMAIL_REGEX: &str = r"^([a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+)@([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)$";
 
 enum CapturePhotosState {
     Countdown {
@@ -98,6 +100,7 @@ pub struct MainApp<
     student_id: String,
     upload_handle: Option<S::UploadHandle>,
     qr_code_data: Option<iced::widget::qr_code::Data>,
+    email_validation_triggered: bool,
     pub new_page: Option<Box<(AppPage<C, S>, Task<PhotoBoothMessage<C, S>>)>>,
 }
 
@@ -122,6 +125,7 @@ impl<
 
                 emails: Vec::new(),
                 upload_handle: None,
+                email_validation_triggered: false,
             },
             Task::none(),
         )
@@ -229,7 +233,7 @@ impl<
                                     last_photo.height(),
                                     last_photo.into_raw(),
                                 ),
-                            }
+                            };
                         };
                         Task::none()
                     }
@@ -263,6 +267,7 @@ impl<
                                 ));
                                 self.upload_handle = None;
                                 self.qr_code_data = None;
+                                self.email_validation_triggered = false;
                                 self.state = MainAppState::RenderedPreview {
                                     progress_timeline: anim::Options::new(0.0, 1.0)
                                         .duration(Duration::from_millis(
@@ -379,6 +384,7 @@ impl<
                 if self.emails.is_empty() {
                     self.emails.push(email);
                 } else {
+                    self.email_validation_triggered = false;
                     self.emails[0] = email;
                 }
                 Task::none()
@@ -386,7 +392,15 @@ impl<
             MainAppMessage::EmailSubmit => {
                 log::debug!("Email submit triggered. Current emails: {:?}", self.emails);
                 if self.emails[0].len() > 0 {
-                    self.emails.splice(0..0, ["".to_string()]);
+                    if regex::Regex::new(EMAIL_REGEX)
+                        .expect("failed to compile email regex")
+                        .is_match(&self.emails[0])
+                    {
+                        self.emails.splice(0..0, ["".to_string()]);
+                    } else {
+                        log::debug!("Email is invalid.");
+                        self.email_validation_triggered = true;
+                    };
                     Task::none()
                 } else {
                     if self.upload_handle.is_none() {
@@ -504,7 +518,7 @@ impl<
                                     .into(),
                                 vertical_space().height(6).into(),
                                 iced::widget::text("Press [SPACE] to get started.")
-                                    .size(24)
+                                    .size(36)
                                     .into(),
                                     vertical_space().height(12).into(),
                                     iced::widget::text(dotenv!("PRIVACY_NOTE"))
@@ -619,7 +633,7 @@ impl<
                     ]).spacing(8).align_y(Alignment::Center)).into()
                 ]).into(),
                 MainAppState::EmailEntry => iced::widget::stack([
-                    title_overlay(
+                    full_title_overlay(
                         row([
                             column([
                                 title_text("Enter your email addresses").width(Length::Shrink).into(),
@@ -634,9 +648,21 @@ impl<
                                             )
                                             .on_input(MainAppMessage::EmailInput)
                                             .on_submit(MainAppMessage::EmailSubmit)
-                                            .padding(10)
                                             .size(24)
                                             .id("email_input")
+                                            .style(|theme: &iced::Theme, status| {
+                                                let mut normal = iced::widget::text_input::default(theme, status);
+                                                normal.border.radius = 6.0.into();
+                                                normal
+                                            })
+                                            .padding(
+                                                Padding {
+                                                    bottom: 10.0,
+                                                    left: 16.0,
+                                                    right: 16.0,
+                                                    top: 10.0,
+                                                },
+                                            )
                                             .into(),
                                             horizontal_space().width(6.0).into(),
                                             iced::widget::button(iced::widget::text(if self.emails[0].len() > 0 {
@@ -645,6 +671,19 @@ impl<
                                                 "Press [Enter] to finish"
                                             })
                                             .size(24))
+                                            .style(|theme: &iced::Theme, status| {
+                                                let mut normal = iced::widget::button::primary(theme, status);
+                                                normal.border.radius = 999.0.into();
+                                                normal
+                                            })
+                                            .padding(
+                                                Padding {
+                                                    bottom: 10.0,
+                                                    left: 24.0,
+                                                    right: 24.0,
+                                                    top: 10.0,
+                                                },
+                                            )
                                             .on_press_maybe(
                                                 if self.upload_handle.is_none() && self.emails[0].len() == 0 {
                                                     None
@@ -656,11 +695,39 @@ impl<
                                             .into(),
                                         ])
                                         .into(),
-                                        vertical_space().height(12.0).into(),
+                                        vertical_space().height(6.0).into(),
+                                        if self.email_validation_triggered {
+                                            container(
+                                                column([
+                                                    iced::widget::text("Please check your email address for typos.")
+                                                        .size(16)
+                                                        .into(),
+                                                ])
+                                                .align_x(Alignment::Center)
+                                            ).style(|theme: &iced::Theme| container::Style {
+                                                border: iced::Border::default().rounded(999.0).color(
+                                                    theme.extended_palette().danger.strong.color,
+                                                ).width(1.0),
+                                                background: Some(
+                                                    theme.extended_palette().danger.weak.color.into(),
+                                                ),
+                                                text_color: Some(
+                                                    theme.extended_palette().danger.weak.text,
+                                                ),
+                                                ..Default::default()
+                                            })
+                                            .center_x(Length::Fill)
+                                            .padding(8)
+                                            .into()
+                                        } else {
+                                            Space::new(0, 0).into()
+                                        },
+                                        vertical_space().height(6.0).into(),
                                         container(
                                             if self.emails.len() <= 1 {
                                                 Element::from(column([
                                                     text("You can also scan the QR code to download your photos!").into(),
+                                                    text("If you don't want an email, press [Enter] without entering anything.").into(),
                                                     Element::from(if let Some(ref qr_code_data) = self.qr_code_data {
                                                         container(
                                                             iced::widget::qr_code(qr_code_data).cell_size(8).style(|_|iced::widget::qr_code::Style {
@@ -769,7 +836,6 @@ impl<
                             })
                             .into(),
                         ]).align_y(Alignment::Center),
-                        false,
                     ).into(),
                     if self.upload_handle.is_none() {
                         status_overlay::status_overlay(row([
@@ -803,7 +869,19 @@ impl<
                                     )
                                     .on_input(MainAppMessage::StudentIDInput)
                                     .on_submit(MainAppMessage::StudentIDSubmit)
-                                    .padding(10)
+                                            .style(|theme: &iced::Theme, status| {
+                                                let mut normal = iced::widget::text_input::default(theme, status);
+                                                normal.border.radius = 6.0.into();
+                                                normal
+                                            })
+                                            .padding(
+                                                Padding {
+                                                    bottom: 10.0,
+                                                    left: 16.0,
+                                                    right: 16.0,
+                                                    top: 10.0,
+                                                },
+                                            )
                                     .size(24)
                                     .id("student_id_input")
                                     .into(),
@@ -815,7 +893,19 @@ impl<
                                     })
                                     .size(24))
                                     .on_press(MainAppMessage::StudentIDSubmit)
-                                    .padding(10)
+                                    .style(|theme: &iced::Theme, status| {
+                                        let mut normal = iced::widget::button::primary(theme, status);
+                                        normal.border.radius = 999.0.into();
+                                        normal
+                                    })
+                                    .padding(
+                                        Padding {
+                                            bottom: 10.0,
+                                            left: 24.0,
+                                            right: 24.0,
+                                            top: 10.0,
+                                        },
+                                    )
                                     .into(),
                                 ]),
                             )

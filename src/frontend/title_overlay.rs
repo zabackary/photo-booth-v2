@@ -49,6 +49,27 @@ pub fn title_overlay<'a, Message: 'a>(
         .into()
 }
 
+pub fn full_title_overlay<'a, Message: 'a>(
+    content: impl Into<Element<'a, Message>>,
+) -> Element<'a, Message> {
+    container(content)
+        .style(move |theme: &iced::Theme| {
+            container::background(
+                theme
+                    .extended_palette()
+                    .background
+                    .base
+                    .color
+                    .scale_alpha(0.7),
+            )
+        })
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .align_y(Alignment::End)
+        .align_x(Alignment::Center)
+        .into()
+}
+
 pub fn title_text(content: &str) -> Text {
     text(content)
         .style(|theme: &iced::Theme| text::Style {
