@@ -209,12 +209,12 @@ impl super::ServerBackend for SupabaseBackend {
                         let mut encoded = Vec::new();
                         let mut encoded_cursor = Cursor::new(&mut encoded);
                         photo
-                            .write_to(&mut encoded_cursor, image::ImageFormat::Png)
+                            .write_to(&mut encoded_cursor, image::ImageFormat::Jpeg)
                             .map_err(SupabaseBackendError::ImageEncodeDecode)?;
                         upload_file(
                             encoded,
-                            format!("photo_{}.png", i + 1),
-                            "image/png",
+                            format!("photo_{}.jpg", i + 1),
+                            "image/jpeg",
                             folder_id,
                             client,
                             token,
