@@ -3,7 +3,7 @@ use std::{fmt::Display, io::Cursor};
 use dotenv_codegen::dotenv;
 use gcp_auth::TokenProvider;
 use iced::{theme::palette, Color};
-use image::RgbaImage;
+use image::{buffer::ConvertBuffer as _, RgbImage, RgbaImage};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     multipart::Part,
@@ -208,6 +208,8 @@ impl super::ServerBackend for SupabaseBackend {
                     async move {
                         let mut encoded = Vec::new();
                         let mut encoded_cursor = Cursor::new(&mut encoded);
+                        // Convert the photo to RGB since JPEG doesn't do alpha
+                        let photo: RgbImage = photo.convert();
                         photo
                             .write_to(&mut encoded_cursor, image::ImageFormat::Jpeg)
                             .map_err(SupabaseBackendError::ImageEncodeDecode)?;
