@@ -15,21 +15,21 @@ mod frontend;
 
 const PALETTE: Palette = Palette {
     background: iced::Color {
-        r: 0xf0 as f32 / 255.0,
-        g: 0xd0 as f32 / 255.0,
-        b: 0xc5 as f32 / 255.0,
+        r: 187 as f32 / 255.0,
+        g: 187 as f32 / 255.0,
+        b: 221 as f32 / 255.0,
         a: 1.0,
     },
     text: iced::Color {
-        r: 0x70 as f32 / 255.0,
-        g: 0x60 as f32 / 255.0,
-        b: 0x5b as f32 / 255.0,
+        r: 255 as f32 / 255.0,
+        g: 246 as f32 / 255.0,
+        b: 221 as f32 / 255.0,
         a: 1.0,
     },
     primary: iced::Color {
-        r: 0xf0 as f32 / 255.0,
-        g: 0x94 as f32 / 255.0,
-        b: 0x75 as f32 / 255.0,
+        r: 0 as f32 / 255.0,
+        g: 0 as f32 / 255.0,
+        b: 128 as f32 / 255.0,
         a: 1.0,
     },
     success: iced::Color {
@@ -208,9 +208,11 @@ fn main() -> iced::Result {
     .font(include_bytes!(
         "../assets/fonts/Noto_Color_Emoji/NotoColorEmoji-Regular.ttf"
     ))
-    .font(include_bytes!("../assets/fonts/Kenao.ttf"))
-    .default_font(Font::with_name("KENAO"))
-    .theme(|_| iced::Theme::custom("Formal".to_owned(), PALETTE))
+    .font(include_bytes!(
+        "../assets/fonts/Montserrat/Montserrat-Regular.ttf"
+    ))
+    .default_font(Font::with_name("Montserrat"))
+    .theme(|_| iced::Theme::custom("CAJ".to_owned(), PALETTE))
     .subscription(PhotoBoothApplication::subscription)
     .run_with(|| {
         let server_backend = ServerBackend::new().expect("failed to initialize server backend");
