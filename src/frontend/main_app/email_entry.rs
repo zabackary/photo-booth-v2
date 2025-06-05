@@ -6,8 +6,14 @@ use iced::{
 };
 use regex::Regex;
 
-use super::EMAIL_REGEX;
 use crate::frontend::title_overlay::{full_title_overlay, supporting_text, title_text};
+
+const QR_CODE_QUIET_ZONE: usize = 2;
+pub const QR_CODE_VERSION: iced::widget::qr_code::Version =
+    iced::widget::qr_code::Version::Normal(5);
+const QR_CODE_SIDE_LENGTH: usize = QR_CODE_QUIET_ZONE * 2 + (5 * 4 + 17);
+
+const EMAIL_REGEX: &str = r"^([a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+)@([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)$";
 
 #[derive(Debug, Clone)]
 pub struct EmailEntry {
@@ -166,7 +172,7 @@ impl EmailEntry {
                                                     background: Color::WHITE,
                                                     cell: Color::BLACK
                                                 })
-                                            ).width(128).height(128).padding(8).into()
+                                            ).width((QR_CODE_SIDE_LENGTH * 8) as u16).height((QR_CODE_SIDE_LENGTH * 8) as u16).padding(8).into()
                                         } else {
                                             container(
                                                 column([
@@ -174,7 +180,7 @@ impl EmailEntry {
                                                 ])
                                                 .align_x(iced::Alignment::Center)
                                                 .spacing(8)
-                                            ).style(|_| container::background(Color::WHITE)).padding(8).center(128).into()
+                                            ).style(|_| container::background(Color::WHITE)).padding(8).center((QR_CODE_SIDE_LENGTH * 8) as u16).into()
                                         }
                                     ]).spacing(16).padding(4).align_x(iced::Alignment::Center)
                                 } else {

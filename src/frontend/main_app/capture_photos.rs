@@ -63,8 +63,10 @@ impl CapturePhotos {
                                 if *current == 0 {
                                     self.state = CapturePhotosState::Capture;
                                     self.countdown_timeline = None;
-                                    self.capture_timeline =
-                                        Some(animations::capture_flash::animation().to_timeline());
+                                    log::trace!("Start animation");
+                                    self.capture_timeline = Some(
+                                        animations::capture_flash::animation().begin_animation(),
+                                    );
                                     return Some(CapturePhotosEffect::CaptureStill);
                                 } else {
                                     self.countdown_timeline = Some(

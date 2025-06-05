@@ -2,14 +2,15 @@ use std::time::Duration;
 
 use anim::Animation;
 use iced::{
-    widget::{
-        image::Handle, row, text,
-    },
+    widget::{image::Handle, row, text},
     Alignment, ContentFit, Element, Length, Task,
 };
 use image::RgbaImage;
 
-use crate::{backend::render_take::render_take, AppPage, KeyMessage, PhotoBoothMessage, PALETTE};
+use crate::{
+    backend::render_take::render_take, frontend::main_app::email_entry::QR_CODE_VERSION, AppPage,
+    KeyMessage, PhotoBoothMessage, PALETTE,
+};
 
 use super::{
     camera_feed::{CameraFeed, CameraFeedOptions},
@@ -17,31 +18,25 @@ use super::{
 };
 
 mod animations;
-mod status_overlay;
-mod email_entry;
-mod student_id_entry;
-mod payment_required;
-mod emailing;
 mod capture_photos;
+mod email_entry;
+mod emailing;
+mod payment_required;
 mod preview;
 mod rendered_preview;
+mod status_overlay;
+mod student_id_entry;
 
-use email_entry::{EmailEntry, EmailEntryMessage, EmailEntryEffect};
-use student_id_entry::{StudentIDEntry, StudentIDEntryMessage, StudentIDEntryEffect};
-use payment_required::{PaymentRequired, PaymentRequiredMessage, PaymentRequiredEffect};
-use emailing::{Emailing, EmailingMessage, EmailingEffect};
-use capture_photos::{CapturePhotos, CapturePhotosMessage, CapturePhotosEffect};
+use capture_photos::{CapturePhotos, CapturePhotosEffect, CapturePhotosMessage};
+use email_entry::{EmailEntry, EmailEntryEffect, EmailEntryMessage};
+use emailing::{Emailing, EmailingEffect, EmailingMessage};
+use payment_required::{PaymentRequired, PaymentRequiredEffect, PaymentRequiredMessage};
 use preview::{Preview, PreviewMessage};
-use rendered_preview::{RenderedPreview, RenderedPreviewMessage, RenderedPreviewEffect};
+use rendered_preview::{RenderedPreview, RenderedPreviewEffect, RenderedPreviewMessage};
+use student_id_entry::{StudentIDEntry, StudentIDEntryEffect, StudentIDEntryMessage};
 
 const PHOTO_ASPECT_RATIO: f32 = 3.0 / 2.0;
 const PHOTO_COUNT: usize = 4;
-
-const QR_CODE_QUIET_ZONE: usize = 2;
-const QR_CODE_VERSION: iced::widget::qr_code::Version = iced::widget::qr_code::Version::Normal(5);
-const QR_CODE_SIDE_LENGTH: usize = QR_CODE_QUIET_ZONE * 2 + (5 * 4 + 17);
-
-const EMAIL_REGEX: &str = r"^([a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+)@([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)$";
 
 enum MainAppState {
     PaymentRequired,
@@ -189,9 +184,9 @@ impl<
                 MainAppState::CapturePhotos => {
                     Task::done(MainAppMessage::CapturePhotos(CapturePhotosMessage::Tick))
                 }
-                MainAppState::RenderedPreview => {
-                    Task::done(MainAppMessage::RenderedPreview(RenderedPreviewMessage::Tick))
-                }
+                MainAppState::RenderedPreview => Task::done(MainAppMessage::RenderedPreview(
+                    RenderedPreviewMessage::Tick,
+                )),
                 MainAppState::Emailing { progress_timeline } => {
                     if progress_timeline.update().is_completed() {
                         self.state = MainAppState::PaymentRequired;
@@ -241,9 +236,9 @@ impl<
                         };
                         Task::none()
                     }
-                    MainAppState::RenderedPreview => {
-                        Task::done(MainAppMessage::RenderedPreview(RenderedPreviewMessage::Skip))
-                    }
+                    MainAppState::RenderedPreview => Task::done(MainAppMessage::RenderedPreview(
+                        RenderedPreviewMessage::Skip,
+                    )),
                     MainAppState::EmailEntry => iced::widget::text_input::focus("email_input"),
                     MainAppState::StudentIDEntry => {
                         iced::widget::text_input::focus("student_id_input")
@@ -291,7 +286,11 @@ impl<
                                 let future = server_backend.send_email(
                                     upload_handle,
                                     emails,
-                                    Some(student_id),
+                                    if student_id.is_empty() {
+                                        None
+                                    } else {
+                                        Some(student_id)
+                                    },
                                     iced::theme::palette::Extended::generate(PALETTE),
                                 );
                                 self.state = MainAppState::Emailing {
@@ -361,20 +360,20 @@ impl<
                                     photo.as_raw().clone(),
                                 ));
                             }
-                            
+
                             self.strip = Some(render_take(photos.clone()));
                             self.strip_handle = Some(Handle::from_rgba(
                                 self.strip.as_ref().unwrap().width(),
                                 self.strip.as_ref().unwrap().height(),
                                 self.strip.as_ref().unwrap().as_raw().clone(),
                             ));
-                            
+
                             self.upload_handle = None;
                             self.qr_code_data = None;
                             self.email_entry = EmailEntry::new();
                             self.rendered_preview = RenderedPreview::new();
                             self.state = MainAppState::RenderedPreview;
-                            
+
                             let future = server_backend
                                 .upload_photo(self.strip.as_ref().unwrap().clone(), photos);
                             Task::perform(future, |result| {
@@ -467,46 +466,58 @@ impl<
                 .height(Length::Fill)
                 .into(),
             match &self.state {
-                MainAppState::PaymentRequired => {
-                    self.payment_required.view(None).map(MainAppMessage::PaymentRequired)
-                },
-                MainAppState::Preview => {
-                    self.preview.view().map(MainAppMessage::Preview)
-                }
+                MainAppState::PaymentRequired => self
+                    .payment_required
+                    .view(None)
+                    .map(MainAppMessage::PaymentRequired),
+                MainAppState::Preview => self.preview.view().map(MainAppMessage::Preview),
                 MainAppState::CapturePhotosPrepare { ready_timeline } => {
                     animations::ready::view(ready_timeline.value()).into()
                 }
-                MainAppState::CapturePhotos => {
-                    self.capture_photos.view().map(MainAppMessage::CapturePhotos)
-                },
-                MainAppState::RenderedPreview => {
-                    self.rendered_preview.view(self.strip_handle.as_ref()).map(MainAppMessage::RenderedPreview)
-                },
+                MainAppState::CapturePhotos => self
+                    .capture_photos
+                    .view()
+                    .map(MainAppMessage::CapturePhotos),
+                MainAppState::RenderedPreview => self
+                    .rendered_preview
+                    .view(self.strip_handle.as_ref())
+                    .map(MainAppMessage::RenderedPreview),
                 MainAppState::EmailEntry => iced::widget::stack([
-                    self.email_entry.view(
-                        self.upload_handle.as_ref(),
-                        self.qr_code_data.as_ref(),
-                        self.strip_handle.as_ref()
-                    ).map(MainAppMessage::EmailEntry).into(),
+                    self.email_entry
+                        .view(
+                            self.upload_handle.as_ref(),
+                            self.qr_code_data.as_ref(),
+                            self.strip_handle.as_ref(),
+                        )
+                        .map(MainAppMessage::EmailEntry)
+                        .into(),
                     if self.upload_handle.is_none() {
-                        status_overlay::status_overlay(row([
-                            loading_spinners::Circular::new()
-                                .size(30.0)
-                                .bar_height(3.0)
-                                .easing(&loading_spinners::easing::STANDARD_DECELERATE)
-                                .into(),
-                            text("Uploading photos in the background...").into()
-                        ]).spacing(8).align_y(Alignment::Center)).into()
+                        status_overlay::status_overlay(
+                            row([
+                                loading_spinners::Circular::new()
+                                    .size(30.0)
+                                    .bar_height(3.0)
+                                    .easing(&loading_spinners::easing::STANDARD_DECELERATE)
+                                    .into(),
+                                text("Uploading photos in the background...").into(),
+                            ])
+                            .spacing(8)
+                            .align_y(Alignment::Center),
+                        )
+                        .into()
                     } else {
                         "".into()
-                    }
-                ]).into(),
-                MainAppState::StudentIDEntry => {
-                    self.student_id_entry.view(self.strip_handle.as_ref()).map(MainAppMessage::StudentIDEntry)
-                },
-                MainAppState::Emailing { progress_timeline } => {
-                    self.emailing.view(progress_timeline.value()).map(MainAppMessage::Emailing)
-                },
+                    },
+                ])
+                .into(),
+                MainAppState::StudentIDEntry => self
+                    .student_id_entry
+                    .view(self.strip_handle.as_ref())
+                    .map(MainAppMessage::StudentIDEntry),
+                MainAppState::Emailing { progress_timeline } => self
+                    .emailing
+                    .view(progress_timeline.value())
+                    .map(MainAppMessage::Emailing),
             },
         ])
         .into()
