@@ -1,19 +1,18 @@
-// EmailEntryScreen.rs
-// Encapsulated screen for EmailEntry state
-use super::{full_title_overlay, supporting_text, title_text};
 use iced::{
     widget::{
         button, column, container, horizontal_space, image, row, text, text_input, vertical_space,
     },
     Border, Color, Element, Length, Padding,
 };
+use regex::Regex;
 
-pub struct EmailEntryScreen {
-    pub emails: Vec<String>,
-    pub email_validation_triggered: bool,
-    pub upload_handle_exists: bool,
-    pub qr_code_data: Option<iced::widget::qr_code::Data>,
-    pub strip_handle: Option<iced::widget::image::Handle>,
+use super::EMAIL_REGEX;
+use crate::frontend::title_overlay::{full_title_overlay, supporting_text, title_text};
+
+#[derive(Debug, Clone)]
+pub struct EmailEntry {
+    emails: Vec<String>,
+    email_validation_triggered: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -22,10 +21,69 @@ pub enum EmailEntryMessage {
     EmailSubmit,
 }
 
-impl EmailEntryScreen {
-    pub fn update(&mut self, _message: EmailEntryMessage) {}
+#[derive(Debug, Clone)]
+pub enum EmailEntryEffect {
+    Submit { emails: Vec<String> },
+}
 
-    pub fn view<'a>(&'a self) -> Element<'a, EmailEntryMessage> {
+impl EmailEntry {
+    pub fn new() -> Self {
+        Self {
+            emails: vec![String::new()],
+            email_validation_triggered: false,
+        }
+    }
+
+    pub fn get_emails(&self) -> Vec<String> {
+        self.emails
+            .iter()
+            .filter(|e| !e.is_empty())
+            .cloned()
+            .collect()
+    }
+
+    pub fn update(&mut self, message: EmailEntryMessage) -> (Self, Option<EmailEntryEffect>) {
+        match message {
+            EmailEntryMessage::EmailInput(input) => {
+                if let Some(first) = self.emails.get_mut(0) {
+                    *first = input;
+                }
+                self.email_validation_triggered = false;
+                (self.clone(), None)
+            }
+            EmailEntryMessage::EmailSubmit => {
+                let empty_string = String::new();
+                let current_email = self.emails.get(0).unwrap_or(&empty_string).trim();
+
+                if current_email.is_empty() {
+                    // Submit with current emails (excluding empty ones)
+                    let emails = self.get_emails();
+                    return (self.clone(), Some(EmailEntryEffect::Submit { emails }));
+                }
+
+                // Validate email
+                let regex = Regex::new(EMAIL_REGEX).unwrap();
+                if !regex.is_match(current_email) {
+                    self.email_validation_triggered = true;
+                    return (self.clone(), None);
+                }
+
+                // Add email to list and clear input
+                self.emails.push(current_email.to_string());
+                self.emails[0] = String::new();
+                self.email_validation_triggered = false;
+
+                (self.clone(), None)
+            }
+        }
+    }
+
+    pub fn view<'a>(
+        &'a self,
+        _upload_handle: Option<&'a impl Clone>,
+        qr_code_data: Option<&'a iced::widget::qr_code::Data>,
+        strip_handle: Option<&iced::widget::image::Handle>,
+    ) -> Element<'a, EmailEntryMessage> {
         full_title_overlay(
             row([
                 column([
@@ -102,7 +160,7 @@ impl EmailEntryScreen {
                                     column([
                                         text("You can also scan the QR code to download your photos!").into(),
                                         text("If you don't want an email, press [Enter] without entering anything.").into(),
-                                        if let Some(ref qr_code_data) = self.qr_code_data {
+                                        if let Some(ref qr_code_data) = qr_code_data {
                                             container(
                                                 iced::widget::qr_code(qr_code_data).cell_size(8).style(|_|iced::widget::qr_code::Style {
                                                     background: Color::WHITE,
@@ -116,28 +174,27 @@ impl EmailEntryScreen {
                                                 ])
                                                 .align_x(iced::Alignment::Center)
                                                 .spacing(8)
-                                            ).style(|_| container::background(Color::WHITE)).padding(8).center(128)
+                                            ).style(|_| container::background(Color::WHITE)).padding(8).center(128).into()
                                         }
-                                    ]).spacing(16).padding(4).align_x(iced::Alignment::Center).into()
+                                    ]).spacing(16).padding(4).align_x(iced::Alignment::Center)
                                 } else {
-                                    column(
-                                        self.emails.iter().skip(1).map(|email| {
-                                            container(
-                                                text(email.as_str()).size(24)
-                                            ).width(Length::Fill)
-                                                .padding(Padding { bottom: 10.0, left: 16.0, right: 16.0, top: 10.0 })
-                                                .style(|theme: &iced::Theme| container::Style {
-                                                    background: Some(
-                                                        theme.extended_palette().background.strong.color.into(),
-                                                    ),
-                                                    text_color: Some(
-                                                        theme.extended_palette().background.strong.text,
-                                                    ),
-                                                    border: Border::default().rounded(999.0),
-                                                    ..Default::default()
-                                                }).into()
-                                        }).collect()
-                                    ).push(vertical_space()).spacing(8).into()
+                                    let email_elements: Vec<Element<EmailEntryMessage>> = self.emails.iter().skip(1).map(|email| {
+                                        container(
+                                            text(email.as_str()).size(24)
+                                        ).width(Length::Fill)
+                                            .padding(Padding { bottom: 10.0, left: 16.0, right: 16.0, top: 10.0 })
+                                            .style(|theme: &iced::Theme| container::Style {
+                                                background: Some(
+                                                    theme.extended_palette().background.strong.color.into(),
+                                                ),
+                                                text_color: Some(
+                                                    theme.extended_palette().background.strong.text,
+                                                ),
+                                                border: Border::default().rounded(999.0),
+                                                ..Default::default()
+                                            }).into()
+                                    }).collect();
+                                    column(email_elements).push(vertical_space()).spacing(8)
                                 },
                             )
                             .padding(12)
@@ -160,6 +217,7 @@ impl EmailEntryScreen {
                                 ]).align_x(iced::Alignment::Center)
                             ).into()
                         ])
+                        .width(Length::Fill)
                         .align_x(iced::Alignment::Center),
                     )
                     .center(Length::Fill)
@@ -171,7 +229,7 @@ impl EmailEntryScreen {
                 .width(Length::Fill)
                 .into(),
                 horizontal_space().width(12.0).into(),
-                if let Some(strip_handle) = &self.strip_handle {
+                if let Some(strip_handle) = strip_handle {
                     container(
                         column([
                             supporting_text("Your photos").width(Length::Shrink).into(),
