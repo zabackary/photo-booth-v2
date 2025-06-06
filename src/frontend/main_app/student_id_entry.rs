@@ -8,11 +8,11 @@ use iced::{
 use crate::frontend::title_overlay::{full_title_overlay, supporting_text, title_text};
 
 #[derive(Debug, Clone)]
-pub struct StudentIDEntry {
+pub struct StudentIDEntry<UH> {
     student_id: String,
-    pub strip_handle: Option<iced::widget::image::Handle>,
-    pub upload_handle: Option<String>, // Generic upload handle ID
-    pub emails: Vec<String>,           // Store emails from previous step
+    pub strip_handle: iced::widget::image::Handle,
+    pub upload_handle: UH,
+    pub emails: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -23,34 +23,38 @@ pub enum StudentIDEntryMessage {
 
 #[derive(Debug, Clone)]
 pub enum StudentIDEntryEffect {
-    Submit { student_id: String },
+    Submit { student_id: Option<String> },
 }
 
-impl StudentIDEntry {
-    pub fn new() -> Self {
+impl<UH> StudentIDEntry<UH> {
+    pub fn new(
+        strip_handle: iced::widget::image::Handle,
+        upload_handle: UH,
+        emails: Vec<String>,
+    ) -> Self {
         Self {
             student_id: String::new(),
-            strip_handle: None,
-            upload_handle: None,
-            emails: Vec::new(),
+            strip_handle,
+            upload_handle,
+            emails,
         }
     }
 
-    pub fn update(
-        &mut self,
-        message: StudentIDEntryMessage,
-    ) -> (Self, Option<StudentIDEntryEffect>) {
+    pub fn update(&mut self, message: StudentIDEntryMessage) -> Option<StudentIDEntryEffect> {
         match message {
             StudentIDEntryMessage::StudentIDInput(input) => {
                 self.student_id = input;
-                (self.clone(), None)
+                None
             }
             StudentIDEntryMessage::StudentIDSubmit => {
                 let student_id = self.student_id.trim().to_string();
-                (
-                    self.clone(),
-                    Some(StudentIDEntryEffect::Submit { student_id }),
-                )
+                Some(StudentIDEntryEffect::Submit {
+                    student_id: if student_id.is_empty() {
+                        None
+                    } else {
+                        Some(student_id)
+                    },
+                })
             }
         }
     }
@@ -127,41 +131,37 @@ impl StudentIDEntry {
                 .width(Length::Fill)
                 .into(),
                 horizontal_space().width(12.0).into(),
-                if let Some(strip_handle) = &self.strip_handle {
-                    container(
-                        column([
-                            supporting_text("Your photos").width(Length::Shrink).into(),
-                            vertical_space().height(12.0).into(),
-                            image(strip_handle.clone())
-                                .height(Length::Fill)
-                                .content_fit(iced::ContentFit::Contain)
-                                .into(),
-                        ])
-                        .align_x(iced::Alignment::Center)
-                        .padding(30),
-                    )
-                    .style(|theme: &iced::Theme| container::Style {
-                        background: Some(
-                            theme
-                                .extended_palette()
-                                .background
-                                .base
-                                .color
-                                .scale_alpha(0.8)
-                                .into(),
-                        ),
-                        border: Border::default().rounded(iced::border::Radius {
-                            bottom_left: 24.0,
-                            bottom_right: 0.0,
-                            top_left: 24.0,
-                            top_right: 0.0,
-                        }),
-                        ..Default::default()
-                    })
-                    .into()
-                } else {
-                    iced::widget::Space::new(0, 0).into()
-                },
+                container(
+                    column([
+                        supporting_text("Your photos").width(Length::Shrink).into(),
+                        vertical_space().height(12.0).into(),
+                        image(self.strip_handle.clone())
+                            .height(Length::Fill)
+                            .content_fit(iced::ContentFit::Contain)
+                            .into(),
+                    ])
+                    .align_x(iced::Alignment::Center)
+                    .padding(30),
+                )
+                .style(|theme: &iced::Theme| container::Style {
+                    background: Some(
+                        theme
+                            .extended_palette()
+                            .background
+                            .base
+                            .color
+                            .scale_alpha(0.8)
+                            .into(),
+                    ),
+                    border: Border::default().rounded(iced::border::Radius {
+                        bottom_left: 24.0,
+                        bottom_right: 0.0,
+                        top_left: 24.0,
+                        top_right: 0.0,
+                    }),
+                    ..Default::default()
+                })
+                .into(),
             ])
             .align_y(iced::Alignment::Center),
         )

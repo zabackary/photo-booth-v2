@@ -1,13 +1,8 @@
-use std::time::Duration;
-
 use anim::Animation;
-use iced::{
-    widget::{image::Handle, row, text},
-    Alignment, ContentFit, Element, Length, Task,
-};
+use iced::{widget::image::Handle, ContentFit, Element, Length, Task};
 use image::RgbaImage;
 
-use crate::{backend::render_take::render_take, AppPage, KeyMessage, PhotoBoothMessage};
+use crate::{backend::render_take::render_take, AppPage, KeyMessage, PhotoBoothMessage, PALETTE};
 
 use super::{
     camera_feed::{CameraFeed, CameraFeedOptions},
@@ -35,7 +30,7 @@ use student_id_entry::{StudentIDEntry, StudentIDEntryEffect, StudentIDEntryMessa
 const PHOTO_ASPECT_RATIO: f32 = 3.0 / 2.0;
 const PHOTO_COUNT: usize = 4;
 
-enum MainAppState {
+enum MainAppState<UH: Clone> {
     PaymentRequired(PaymentRequired),
     Preview(Preview),
     CapturePhotosPrepare {
@@ -43,9 +38,9 @@ enum MainAppState {
     },
     CapturePhotos(CapturePhotos),
     RenderedPreview(RenderedPreview),
-    EmailEntry(EmailEntry),
+    EmailEntry(EmailEntry<UH>),
     Emailing(Emailing),
-    StudentIDEntry(StudentIDEntry),
+    StudentIDEntry(StudentIDEntry<UH>),
 }
 
 #[derive(Debug, Clone)]
@@ -72,11 +67,9 @@ pub struct MainApp<
     S: crate::backend::servers::ServerBackend + 'static,
 > {
     feed: CameraFeed<C::Camera>,
-    state: MainAppState,
+    state: MainAppState<S::UploadHandle>,
     captured_photos: Vec<RgbaImage>,
     previews: Vec<iced::widget::image::Handle>,
-    strip: Option<RgbaImage>,
-    logo_handle: Handle,
     pub new_page: Option<Box<(AppPage<C, S>, Task<PhotoBoothMessage<C, S>>)>>,
 }
 
@@ -93,8 +86,6 @@ impl<
                 new_page: None,
                 captured_photos: Vec::with_capacity(PHOTO_COUNT),
                 previews: Vec::with_capacity(PHOTO_COUNT),
-                logo_handle: Handle::from_bytes(include_bytes!("../../assets/banner.png").to_vec()),
-                strip: None,
             },
             Task::none(),
         )
@@ -158,8 +149,12 @@ impl<
                     MainAppMessage::RenderedPreview(RenderedPreviewMessage::Tick),
                 ),
                 MainAppState::Emailing(emailing) => {
-                    if emailing.progress_timeline.update().is_completed() {
-                        self.state = MainAppState::PaymentRequired(PaymentRequired::new());
+                    if let Some(effect) = emailing.update(EmailingMessage::Tick) {
+                        match effect {
+                            EmailingEffect::Complete => {
+                                self.state = MainAppState::PaymentRequired(PaymentRequired::new());
+                            }
+                        }
                     }
                     Task::none()
                 }
@@ -172,7 +167,7 @@ impl<
                         // Update email entry with upload data
                         if let MainAppState::EmailEntry(ref mut email_entry) = self.state {
                             // Store the actual upload handle for later use
-                            email_entry.upload_handle = Some(format!("{:?}", res)); // Convert to string representation for now
+                            email_entry.set_upload_handle(res.clone());
                             email_entry.set_qr_code_url(server_backend.get_link(res));
                         }
                         Task::none()
@@ -224,20 +219,25 @@ impl<
                     let effect = email_entry.update(msg);
 
                     match effect {
-                        Some(EmailEntryEffect::Submit { emails }) => {
-                            if emails.is_empty() && email_entry.upload_handle.is_some() {
-                                let mut student_id_entry = StudentIDEntry::new();
-                                student_id_entry.strip_handle = email_entry.strip_handle.clone();
-                                student_id_entry.upload_handle = email_entry.upload_handle.clone();
-                                student_id_entry.emails = emails;
+                        Some(EmailEntryEffect::Submit {
+                            emails,
+                            upload_handle,
+                        }) => {
+                            if emails.is_empty() {
+                                let student_id_entry = StudentIDEntry::new(
+                                    email_entry.strip_handle.clone(),
+                                    upload_handle,
+                                    emails,
+                                );
                                 self.state = MainAppState::StudentIDEntry(student_id_entry);
                                 iced::widget::text_input::focus("student_id_input")
                             } else if !emails.is_empty() {
                                 // Store emails and proceed to student ID entry
-                                let mut student_id_entry = StudentIDEntry::new();
-                                student_id_entry.strip_handle = email_entry.strip_handle.clone();
-                                student_id_entry.upload_handle = email_entry.upload_handle.clone();
-                                student_id_entry.emails = emails;
+                                let student_id_entry = StudentIDEntry::new(
+                                    email_entry.strip_handle.clone(),
+                                    upload_handle,
+                                    emails,
+                                );
                                 self.state = MainAppState::StudentIDEntry(student_id_entry);
                                 iced::widget::text_input::focus("student_id_input")
                             } else {
@@ -249,34 +249,38 @@ impl<
                 }
                 _ => Task::none(),
             },
-            MainAppMessage::StudentIDEntry(msg) => match &mut self.state {
-                MainAppState::StudentIDEntry(student_id_entry) => {
-                    let (new_state, task) = student_id_entry.update(msg);
-                    *student_id_entry = new_state;
-
-                    match task {
-                        Some(StudentIDEntryEffect::Submit { student_id: _ }) => {
-                            // We need to get the upload handle from somewhere - let's add it to student_id_entry too
-                            // For now, let's assume we have access to a saved upload handle
-                            if let Some(_upload_handle_str) = &student_id_entry.upload_handle {
-                                // This is a placeholder - we'll need to properly handle the upload handle
-                                let emailing = Emailing::new();
-                                self.state = MainAppState::Emailing(emailing);
-                                self.strip = None;
-                                log::trace!("Sending email with photos...");
-                                // For now, return a completed task - this needs proper async handling
-                                Task::done(MainAppMessage::Emailed(Ok(())))
-                            } else {
-                                log::error!("No upload handle available for emailing.");
-                                self.state = MainAppState::PaymentRequired(PaymentRequired::new());
-                                Task::none()
-                            }
-                        }
-                        None => Task::none(),
+            MainAppMessage::StudentIDEntry(msg) => {
+                // To avoid borrowing issues, extract needed data first
+                let (upload_handle, emails, task) = match &mut self.state {
+                    MainAppState::StudentIDEntry(student_id_entry) => {
+                        let task = student_id_entry.update(msg);
+                        (
+                            student_id_entry.upload_handle.clone(),
+                            student_id_entry.emails.clone(),
+                            task,
+                        )
                     }
+                    _ => return Task::none(),
+                };
+
+                match task {
+                    Some(StudentIDEntryEffect::Submit { student_id }) => {
+                        let emailing = Emailing::new();
+                        self.state = MainAppState::Emailing(emailing);
+                        log::trace!("Sending email with photos...");
+                        Task::perform(
+                            server_backend.send_email(
+                                upload_handle,
+                                emails,
+                                student_id,
+                                iced::theme::palette::Extended::generate(PALETTE),
+                            ),
+                            |result| MainAppMessage::Emailed(result.map_err(|x| x.to_string())),
+                        )
+                    }
+                    None => Task::none(),
                 }
-                _ => Task::none(),
-            },
+            }
             MainAppMessage::PaymentRequired(msg) => match &mut self.state {
                 MainAppState::PaymentRequired(payment_required) => {
                     let task = payment_required.update(msg);
@@ -293,8 +297,7 @@ impl<
             },
             MainAppMessage::Preview(msg) => match &mut self.state {
                 MainAppState::Preview(preview) => {
-                    let (new_state, _effect) = preview.update(msg);
-                    *preview = new_state;
+                    let _effect = preview.update(msg);
                     Task::none()
                 }
                 _ => Task::none(),
@@ -318,19 +321,17 @@ impl<
                                 ));
                             }
 
-                            self.strip = Some(render_take(photos.clone()));
-                            let strip_handle = Some(Handle::from_rgba(
-                                self.strip.as_ref().unwrap().width(),
-                                self.strip.as_ref().unwrap().height(),
-                                self.strip.as_ref().unwrap().as_raw().clone(),
-                            ));
+                            let strip = render_take(photos.clone());
+                            let strip_handle = Handle::from_rgba(
+                                strip.width(),
+                                strip.height(),
+                                strip.as_raw().clone(),
+                            );
 
-                            let mut rendered_preview = RenderedPreview::new();
-                            rendered_preview.strip_handle = strip_handle;
+                            let rendered_preview = RenderedPreview::new(strip_handle);
                             self.state = MainAppState::RenderedPreview(rendered_preview);
 
-                            let future = server_backend
-                                .upload_photo(self.strip.as_ref().unwrap().clone(), photos);
+                            let future = server_backend.upload_photo(strip.clone(), photos);
                             Task::perform(future, |result| {
                                 MainAppMessage::Uploaded(result.map_err(|x| x.to_string()))
                             })
@@ -346,14 +347,10 @@ impl<
 
                     match task {
                         Some(RenderedPreviewEffect::Complete) => {
-                            let mut email_entry = EmailEntry::new();
-                            email_entry.strip_handle = rendered_preview.strip_handle.clone();
+                            let email_entry =
+                                EmailEntry::new(rendered_preview.strip_handle.clone());
                             self.state = MainAppState::EmailEntry(email_entry);
                             iced::widget::text_input::focus("email_input")
-                        }
-                        Some(RenderedPreviewEffect::UploadPhotos { .. }) => {
-                            // This effect is not used in this context
-                            Task::none()
                         }
                         None => Task::none(),
                     }
@@ -379,14 +376,7 @@ impl<
                 match &mut self.state {
                     MainAppState::Emailing(emailing) => match result {
                         Ok(_) => {
-                            emailing.progress_timeline =
-                                anim::Options::new(emailing.progress_timeline.value(), 1.0)
-                                    .duration(Duration::from_millis(1000))
-                                    .easing(
-                                        anim::easing::cubic_ease()
-                                            .mode(anim::easing::EasingMode::InOut),
-                                    )
-                                    .begin_animation();
+                            emailing.finish();
                             Task::none()
                         }
                         Err(err) => {
@@ -434,27 +424,9 @@ impl<
                 MainAppState::RenderedPreview(rendered_preview) => {
                     rendered_preview.view().map(MainAppMessage::RenderedPreview)
                 }
-                MainAppState::EmailEntry(email_entry) => iced::widget::stack([
-                    email_entry.view().map(MainAppMessage::EmailEntry).into(),
-                    if email_entry.upload_handle.is_none() {
-                        status_overlay::status_overlay(
-                            row([
-                                loading_spinners::Circular::new()
-                                    .size(30.0)
-                                    .bar_height(3.0)
-                                    .easing(&loading_spinners::easing::STANDARD_DECELERATE)
-                                    .into(),
-                                text("Uploading photos in the background...").into(),
-                            ])
-                            .spacing(8)
-                            .align_y(Alignment::Center),
-                        )
-                        .into()
-                    } else {
-                        "".into()
-                    },
-                ])
-                .into(),
+                MainAppState::EmailEntry(email_entry) => {
+                    email_entry.view().map(MainAppMessage::EmailEntry).into()
+                }
                 MainAppState::StudentIDEntry(student_id_entry) => {
                     student_id_entry.view().map(MainAppMessage::StudentIDEntry)
                 }

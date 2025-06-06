@@ -27,7 +27,6 @@ enum CapturePhotosState {
 #[derive(Debug, Clone)]
 pub enum CapturePhotosMessage {
     Tick,
-    CaptureStill,
 }
 
 #[derive(Debug, Clone)]
@@ -118,10 +117,6 @@ impl CapturePhotos {
                     }
                 }
                 None
-            }
-            CapturePhotosMessage::CaptureStill => {
-                // This message doesn't change state, just triggers capture effect
-                Some(CapturePhotosEffect::CaptureStill)
             }
         }
     }

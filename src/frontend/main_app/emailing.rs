@@ -15,7 +15,7 @@ pub struct Emailing {
 
 #[derive(Debug, Clone)]
 pub enum EmailingMessage {
-    Complete,
+    Tick,
 }
 
 #[derive(Debug, Clone)]
@@ -33,9 +33,22 @@ impl Emailing {
         }
     }
 
+    pub fn finish(&mut self) {
+        self.progress_timeline = anim::Options::new(self.progress_timeline.value(), 1.0)
+            .duration(Duration::from_millis(1000))
+            .easing(anim::easing::cubic_ease().mode(anim::easing::EasingMode::InOut))
+            .begin_animation();
+    }
+
     pub fn update(&mut self, message: EmailingMessage) -> Option<EmailingEffect> {
         match message {
-            EmailingMessage::Complete => Some(EmailingEffect::Complete),
+            EmailingMessage::Tick => {
+                if self.progress_timeline.update().is_completed() {
+                    Some(EmailingEffect::Complete)
+                } else {
+                    None
+                }
+            }
         }
     }
 

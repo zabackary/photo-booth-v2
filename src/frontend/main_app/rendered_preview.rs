@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use ::image::RgbaImage;
 use anim::Animation;
 use iced::{
     widget::{column, progress_bar, row, text, vertical_space},
@@ -19,7 +18,7 @@ pub struct RenderedPreview {
     progress_timeline: anim::Timeline<f32>,
     template_preview_timeline: anim::Timeline<animations::upsell_templates::AnimationState>,
     is_completed: bool,
-    pub strip_handle: Option<iced::widget::image::Handle>,
+    pub strip_handle: iced::widget::image::Handle,
 }
 
 #[derive(Debug, Clone)]
@@ -31,14 +30,10 @@ pub enum RenderedPreviewMessage {
 #[derive(Debug, Clone)]
 pub enum RenderedPreviewEffect {
     Complete,
-    UploadPhotos {
-        strip: RgbaImage,
-        photos: Vec<RgbaImage>,
-    },
 }
 
 impl RenderedPreview {
-    pub fn new() -> Self {
+    pub fn new(strip_handle: iced::widget::image::Handle) -> Self {
         Self {
             progress_timeline: anim::Options::new(0.0, 1.0)
                 .duration(Duration::from_millis(
@@ -48,7 +43,7 @@ impl RenderedPreview {
                 .begin_animation(),
             template_preview_timeline: animations::upsell_templates::animation().begin_animation(),
             is_completed: false,
-            strip_handle: None,
+            strip_handle,
         }
     }
 
@@ -80,16 +75,11 @@ impl RenderedPreview {
         iced::widget::stack([
             title_overlay(
                 column([
-                    self.strip_handle
-                        .as_ref()
-                        .map(|handle| {
-                            animations::upsell_templates::view(
-                                handle,
-                                self.template_preview_timeline.value(),
-                            )
-                            .into()
-                        })
-                        .unwrap_or_else(|| vertical_space().height(200.0).into()),
+                    animations::upsell_templates::view(
+                        &self.strip_handle,
+                        self.template_preview_timeline.value(),
+                    )
+                    .into(),
                     title_text("Your photos are ready!").into(),
                     supporting_text("On the next screen, enter your emails.").into(),
                     vertical_space().height(12.0).into(),
