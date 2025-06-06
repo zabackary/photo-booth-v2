@@ -173,7 +173,9 @@ impl<
                         Task::none()
                     }
                     Err(err) => {
-                        self.state = MainAppState::PaymentRequired(PaymentRequired::new());
+                        self.state = MainAppState::PaymentRequired(PaymentRequired::with_error(
+                            format!("Failed to upload photos: {}", err),
+                        ));
                         log::error!("Error uploading photos: {}", err);
                         Task::none()
                     }
@@ -380,7 +382,10 @@ impl<
                             Task::none()
                         }
                         Err(err) => {
-                            self.state = MainAppState::PaymentRequired(PaymentRequired::new());
+                            self.state =
+                                MainAppState::PaymentRequired(PaymentRequired::with_error(
+                                    format!("Failed to email photos: {}", err),
+                                ));
                             log::error!("Error emailing photos: {}", err);
                             Task::none()
                         }
@@ -411,9 +416,9 @@ impl<
                 .height(Length::Fill)
                 .into(),
             match &self.state {
-                MainAppState::PaymentRequired(payment_required) => payment_required
-                    .view(None)
-                    .map(MainAppMessage::PaymentRequired),
+                MainAppState::PaymentRequired(payment_required) => {
+                    payment_required.view().map(MainAppMessage::PaymentRequired)
+                }
                 MainAppState::Preview(preview) => preview.view().map(MainAppMessage::Preview),
                 MainAppState::CapturePhotosPrepare { ready_timeline } => {
                     animations::ready::view(ready_timeline.value()).into()
