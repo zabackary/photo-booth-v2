@@ -3,7 +3,7 @@ use iced::{
     Alignment, Element, Length,
 };
 
-use crate::frontend::title_overlay::{supporting_text, title_overlay};
+use crate::frontend::title_overlay::{self, supporting_text};
 
 #[derive(Debug, Clone)]
 pub struct PaymentRequired {
@@ -45,7 +45,7 @@ impl PaymentRequired {
     }
 
     pub fn view<'a>(&'a self) -> Element<'a, PaymentRequiredMessage> {
-        title_overlay(
+        title_overlay::faded_overlay(
             column([
                 vertical_space().height(Length::Fill).into(),
                 container(image(self.logo_handle.clone()).content_fit(iced::ContentFit::Contain))
@@ -67,7 +67,7 @@ impl PaymentRequired {
                 supporting_text("Press [SPACE] to start taking photos.").into(),
                 vertical_space().height(12.0).into(),
             ]),
-            true,
+            false,
         )
     }
 }
