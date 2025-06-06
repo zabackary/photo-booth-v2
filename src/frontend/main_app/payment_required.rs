@@ -25,7 +25,7 @@ impl PaymentRequired {
     pub fn with_error(error: String) -> Self {
         Self {
             logo_handle: iced::widget::image::Handle::from_bytes(
-                include_bytes!("../../../assets/banner.png").to_vec(),
+                include_bytes!("../../../assets/caj-logo.png").to_vec(),
             ),
             error: Some(error),
         }
@@ -34,7 +34,7 @@ impl PaymentRequired {
     pub fn new() -> Self {
         Self {
             logo_handle: iced::widget::image::Handle::from_bytes(
-                include_bytes!("../../../assets/banner.png").to_vec(),
+                include_bytes!("../../../assets/caj-logo.png").to_vec(),
             ),
             error: None,
         }
