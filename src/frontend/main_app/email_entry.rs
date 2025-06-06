@@ -15,10 +15,13 @@ const QR_CODE_SIDE_LENGTH: usize = QR_CODE_QUIET_ZONE * 2 + (5 * 4 + 17);
 
 const EMAIL_REGEX: &str = r"^([a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+)@([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)$";
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct EmailEntry {
     emails: Vec<String>,
     email_validation_triggered: bool,
+    pub upload_handle: Option<String>, // Generic upload handle ID
+    qr_code_data: Option<iced::widget::qr_code::Data>, // Store the QR code data directly
+    pub strip_handle: Option<iced::widget::image::Handle>,
 }
 
 #[derive(Debug, Clone)]
@@ -37,7 +40,19 @@ impl EmailEntry {
         Self {
             emails: vec![String::new()],
             email_validation_triggered: false,
+            upload_handle: None,
+            qr_code_data: None,
+            strip_handle: None,
         }
+    }
+
+    pub fn set_qr_code_url(&mut self, url: String) {
+        self.qr_code_data = iced::widget::qr_code::Data::with_version(
+            &url,
+            QR_CODE_VERSION,
+            iced::widget::qr_code::ErrorCorrection::Medium,
+        )
+        .ok();
     }
 
     pub fn get_emails(&self) -> Vec<String> {
@@ -48,14 +63,14 @@ impl EmailEntry {
             .collect()
     }
 
-    pub fn update(&mut self, message: EmailEntryMessage) -> (Self, Option<EmailEntryEffect>) {
+    pub fn update(&mut self, message: EmailEntryMessage) -> Option<EmailEntryEffect> {
         match message {
             EmailEntryMessage::EmailInput(input) => {
                 if let Some(first) = self.emails.get_mut(0) {
                     *first = input;
                 }
                 self.email_validation_triggered = false;
-                (self.clone(), None)
+                None
             }
             EmailEntryMessage::EmailSubmit => {
                 let empty_string = String::new();
@@ -64,14 +79,14 @@ impl EmailEntry {
                 if current_email.is_empty() {
                     // Submit with current emails (excluding empty ones)
                     let emails = self.get_emails();
-                    return (self.clone(), Some(EmailEntryEffect::Submit { emails }));
+                    return Some(EmailEntryEffect::Submit { emails });
                 }
 
                 // Validate email
                 let regex = Regex::new(EMAIL_REGEX).unwrap();
                 if !regex.is_match(current_email) {
                     self.email_validation_triggered = true;
-                    return (self.clone(), None);
+                    return None;
                 }
 
                 // Add email to list and clear input
@@ -79,17 +94,12 @@ impl EmailEntry {
                 self.emails[0] = String::new();
                 self.email_validation_triggered = false;
 
-                (self.clone(), None)
+                None
             }
         }
     }
 
-    pub fn view<'a>(
-        &'a self,
-        _upload_handle: Option<&'a impl Clone>,
-        qr_code_data: Option<&'a iced::widget::qr_code::Data>,
-        strip_handle: Option<&iced::widget::image::Handle>,
-    ) -> Element<'a, EmailEntryMessage> {
+    pub fn view<'a>(&'a self) -> Element<'a, EmailEntryMessage> {
         full_title_overlay(
             row([
                 column([
@@ -166,7 +176,7 @@ impl EmailEntry {
                                     column([
                                         text("You can also scan the QR code to download your photos!").into(),
                                         text("If you don't want an email, press [Enter] without entering anything.").into(),
-                                        if let Some(ref qr_code_data) = qr_code_data {
+                                        if let Some(ref qr_code_data) = self.qr_code_data {
                                             container(
                                                 iced::widget::qr_code(qr_code_data).cell_size(8).style(|_|iced::widget::qr_code::Style {
                                                     background: Color::WHITE,
@@ -235,7 +245,7 @@ impl EmailEntry {
                 .width(Length::Fill)
                 .into(),
                 horizontal_space().width(12.0).into(),
-                if let Some(strip_handle) = strip_handle {
+                if let Some(strip_handle) = &self.strip_handle {
                     container(
                         column([
                             supporting_text("Your photos").width(Length::Shrink).into(),

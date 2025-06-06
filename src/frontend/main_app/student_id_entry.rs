@@ -10,6 +10,9 @@ use crate::frontend::title_overlay::{full_title_overlay, supporting_text, title_
 #[derive(Debug, Clone)]
 pub struct StudentIDEntry {
     student_id: String,
+    pub strip_handle: Option<iced::widget::image::Handle>,
+    pub upload_handle: Option<String>, // Generic upload handle ID
+    pub emails: Vec<String>,           // Store emails from previous step
 }
 
 #[derive(Debug, Clone)]
@@ -27,6 +30,9 @@ impl StudentIDEntry {
     pub fn new() -> Self {
         Self {
             student_id: String::new(),
+            strip_handle: None,
+            upload_handle: None,
+            emails: Vec::new(),
         }
     }
 
@@ -49,10 +55,7 @@ impl StudentIDEntry {
         }
     }
 
-    pub fn view(
-        &self,
-        strip_handle: Option<&iced::widget::image::Handle>,
-    ) -> Element<StudentIDEntryMessage> {
+    pub fn view(&self) -> Element<StudentIDEntryMessage> {
         full_title_overlay(
             row([
                 column([
@@ -124,7 +127,7 @@ impl StudentIDEntry {
                 .width(Length::Fill)
                 .into(),
                 horizontal_space().width(12.0).into(),
-                if let Some(strip_handle) = strip_handle {
+                if let Some(strip_handle) = &self.strip_handle {
                     container(
                         column([
                             supporting_text("Your photos").width(Length::Shrink).into(),

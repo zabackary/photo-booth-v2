@@ -1,8 +1,9 @@
 use std::time::Duration;
 
+use ::image::RgbaImage;
 use anim::Animation;
 use iced::{
-    widget::{column, image::Handle, progress_bar, row, text, vertical_space},
+    widget::{column, progress_bar, row, text, vertical_space},
     Alignment, Element,
 };
 
@@ -18,6 +19,7 @@ pub struct RenderedPreview {
     progress_timeline: anim::Timeline<f32>,
     template_preview_timeline: anim::Timeline<animations::upsell_templates::AnimationState>,
     is_completed: bool,
+    pub strip_handle: Option<iced::widget::image::Handle>,
 }
 
 #[derive(Debug, Clone)]
@@ -30,8 +32,8 @@ pub enum RenderedPreviewMessage {
 pub enum RenderedPreviewEffect {
     Complete,
     UploadPhotos {
-        strip: image::RgbaImage,
-        photos: Vec<image::RgbaImage>,
+        strip: RgbaImage,
+        photos: Vec<RgbaImage>,
     },
 }
 
@@ -46,6 +48,7 @@ impl RenderedPreview {
                 .begin_animation(),
             template_preview_timeline: animations::upsell_templates::animation().begin_animation(),
             is_completed: false,
+            strip_handle: None,
         }
     }
 
@@ -73,14 +76,12 @@ impl RenderedPreview {
         }
     }
 
-    pub fn view<'a>(
-        &self,
-        strip_handle: Option<&'a Handle>,
-    ) -> Element<'a, RenderedPreviewMessage> {
+    pub fn view(&self) -> Element<RenderedPreviewMessage> {
         iced::widget::stack([
             title_overlay(
                 column([
-                    strip_handle
+                    self.strip_handle
+                        .as_ref()
                         .map(|handle| {
                             animations::upsell_templates::view(
                                 handle,

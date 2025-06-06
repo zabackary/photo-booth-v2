@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use iced::{
     widget::{column, container, progress_bar, vertical_space},
     Element, Length,
@@ -6,8 +8,10 @@ use iced::{
 use super::loading_spinners;
 use crate::frontend::title_overlay::{supporting_text, title_overlay, title_text};
 
-#[derive(Debug, Clone)]
-pub struct Emailing;
+#[derive(Debug)]
+pub struct Emailing {
+    pub progress_timeline: anim::Timeline<f32>,
+}
 
 #[derive(Debug, Clone)]
 pub enum EmailingMessage {
@@ -21,16 +25,21 @@ pub enum EmailingEffect {
 
 impl Emailing {
     pub fn new() -> Self {
-        Self
-    }
-
-    pub fn update(&mut self, message: EmailingMessage) -> (Self, Option<EmailingEffect>) {
-        match message {
-            EmailingMessage::Complete => (Self, Some(EmailingEffect::Complete)),
+        Self {
+            progress_timeline: anim::Options::new(0.0, 0.8)
+                .duration(Duration::from_millis(15000))
+                .easing(anim::easing::cubic_ease().mode(anim::easing::EasingMode::InOut))
+                .begin_animation(),
         }
     }
 
-    pub fn view(&self, progress: f32) -> Element<EmailingMessage> {
+    pub fn update(&mut self, message: EmailingMessage) -> Option<EmailingEffect> {
+        match message {
+            EmailingMessage::Complete => Some(EmailingEffect::Complete),
+        }
+    }
+
+    pub fn view(&self) -> Element<EmailingMessage> {
         title_overlay(
             column([
                 container(
@@ -47,7 +56,9 @@ impl Emailing {
                 )
                 .into(),
                 vertical_space().height(12.0).into(),
-                progress_bar(0.0..=1.0, progress).height(8.0).into(),
+                progress_bar(0.0..=1.0, self.progress_timeline.value())
+                    .height(8.0)
+                    .into(),
             ]),
             false,
         )

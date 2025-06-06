@@ -23,11 +23,8 @@ impl PaymentRequired {
         Self
     }
 
-    pub fn update(
-        &mut self,
-        _message: PaymentRequiredMessage,
-    ) -> (Self, Option<PaymentRequiredEffect>) {
-        (Self, Some(PaymentRequiredEffect::StartSession))
+    pub fn update(&mut self, _message: PaymentRequiredMessage) -> Option<PaymentRequiredEffect> {
+        Some(PaymentRequiredEffect::StartSession)
     }
 
     pub fn view<'a>(&self, error: Option<&'a str>) -> Element<'a, PaymentRequiredMessage> {
