@@ -110,7 +110,7 @@ impl super::ServerBackend for SupabaseBackend {
         strip: RgbaImage,
         photos: Vec<RgbaImage>,
     ) -> Result<UploadHandle, Self::Error> {
-sleep(Duration::from_secs(2)).await;
+sleep(Duration::from_secs(4)).await;
         let service_account = gcp_auth::CustomServiceAccount::from_json(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/service_account_key.json"
