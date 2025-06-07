@@ -225,26 +225,25 @@ impl<
                             emails,
                             upload_handle,
                         }) => {
-                            if emails.is_empty() {
-                                let student_id_entry = StudentIDEntry::new(
-                                    email_entry.strip_handle.clone(),
+                            let emailing = Emailing::new();
+                            self.state = MainAppState::Emailing(emailing);
+                            log::trace!("Sending email with photos...");
+                            Task::perform(
+                                server_backend.send_email(
                                     upload_handle,
                                     emails,
-                                );
-                                self.state = MainAppState::StudentIDEntry(student_id_entry);
-                                iced::widget::text_input::focus("student_id_input")
-                            } else if !emails.is_empty() {
-                                // Store emails and proceed to student ID entry
-                                let student_id_entry = StudentIDEntry::new(
-                                    email_entry.strip_handle.clone(),
-                                    upload_handle,
-                                    emails,
-                                );
-                                self.state = MainAppState::StudentIDEntry(student_id_entry);
-                                iced::widget::text_input::focus("student_id_input")
-                            } else {
-                                Task::none()
-                            }
+                                    None,
+                                    iced::theme::palette::Extended::generate(PALETTE),
+                                ),
+                                |result| MainAppMessage::Emailed(result.map_err(|x| x.to_string())),
+                            )
+                            // let student_id_entry = StudentIDEntry::new(
+                            //     email_entry.strip_handle.clone(),
+                            //     upload_handle,
+                            //     emails,
+                            // );
+                            // self.state = MainAppState::StudentIDEntry(student_id_entry);
+                            // iced::widget::text_input::focus("student_id_input")
                         }
                         None => Task::none(),
                     }
