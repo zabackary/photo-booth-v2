@@ -1,4 +1,5 @@
 use std::{fmt::Display, io::Cursor};
+use std::time::Duration;
 
 use dotenv_codegen::dotenv;
 use gcp_auth::TokenProvider;
@@ -11,6 +12,8 @@ use reqwest::{
 };
 use serde_json::json;
 use tokio::try_join;
+
+use tokio::time::sleep;
 
 fn color_hex(color: Color) -> String {
     let r = (color.r * 255.0) as u32;
@@ -107,6 +110,7 @@ impl super::ServerBackend for SupabaseBackend {
         strip: RgbaImage,
         photos: Vec<RgbaImage>,
     ) -> Result<UploadHandle, Self::Error> {
+sleep(Duration::from_secs(2)).await;
         let service_account = gcp_auth::CustomServiceAccount::from_json(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/service_account_key.json"
