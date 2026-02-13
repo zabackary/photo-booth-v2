@@ -41,8 +41,9 @@ async-trait = "0.1.89"
 anyhow = "1.0.101"
 
 [features]
-default = ["camera_nokhwa", "camera_gphoto2"]
+default = ["camera_nokhwa", "camera_gphoto2", "mock"]
 fast_animations = []
+mock = []
 camera_nokhwa = ["dep:nokhwa"]
 camera_gphoto2 = ["dep:gphoto2"]
 

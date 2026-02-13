@@ -2,6 +2,8 @@ use std::fmt::{Debug, Display};
 
 #[cfg(feature = "camera_gphoto2")]
 pub mod gphoto2;
+#[cfg(feature = "mock")]
+pub mod mock;
 #[cfg(feature = "camera_nokhwa")]
 pub mod nokhwa;
 
