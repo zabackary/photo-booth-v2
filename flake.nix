@@ -33,6 +33,20 @@
           openssl
           libv4l
         ];
+        libPath =
+          with pkgs;
+          lib.makeLibraryPath [
+            # Wayland
+            libGL
+            libxkbcommon
+            vulkan-loader
+            wayland
+            # X11
+            xorg.libXcursor
+            xorg.libXrandr
+            xorg.libXi
+            xorg.libX11
+          ];
         naersk-lib = naersk.lib."${system}";
       in
       {
@@ -52,6 +66,7 @@
 
           LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
           BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.linuxHeaders}/include -I${pkgs.glibc.dev}/include";
+          LD_LIBRARY_PATH = libPath;
         };
       }
     );
