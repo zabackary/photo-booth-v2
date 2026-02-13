@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 
-// #[cfg(feature = "camera_gphoto2")]
-// pub mod gphoto2;
+#[cfg(feature = "camera_gphoto2")]
+pub mod gphoto2;
 #[cfg(feature = "camera_nokhwa")]
 pub mod nokhwa;
 
@@ -16,12 +16,12 @@ pub trait CameraBackend: Debug + Send + 'static {
     }
 
     /// Enumerate available cameras attached to this backend
-    fn enumerate() -> Result<Vec<dyn CameraBackendHandle>, Self::Error>;
+    async fn enumerate(&self) -> Result<Vec<dyn CameraBackendHandle>, Self::Error>;
 
-    /// Returns the default camera provided by this backend, if any
+    /// Opens the default camera provided by this backend, if any
     ///
     /// It is up to the backend to determine what the "default" camera is
-    fn default_camera() -> Result<Option<dyn CameraBackendHandle>, Self::Error> {
+    async fn open_default(&self) -> Result<Option<Box<dyn Camera>>, Self::Error> {
         Ok(None)
     }
 }

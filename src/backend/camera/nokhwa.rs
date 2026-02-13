@@ -15,7 +15,7 @@ pub struct NokhwaCameraBackend {}
 impl super::CameraBackend for NokhwaCameraBackend {
     type Error = NokhwaError;
 
-    async fn initialize() -> Result<(), Self::Error> {
+    async fn initialize(&self) -> Result<(), Self::Error> {
         let (tx, rx) = oneshot::channel::<bool>();
 
         nokhwa::nokhwa_initialize(move |success| {
@@ -29,7 +29,7 @@ impl super::CameraBackend for NokhwaCameraBackend {
             .map_err(|_| NokhwaError::GeneralError("failed to initialize backend".into()))?)
     }
 
-    fn enumerate() -> Result<Vec<dyn super::CameraBackendHandle>, Self::Error> {
+    fn enumerate(&self) -> Result<Vec<dyn super::CameraBackendHandle>, Self::Error> {
         if !nokhwa::nokhwa_check() {
             return Err(NokhwaError::UnitializedError);
         }
@@ -41,10 +41,10 @@ impl super::CameraBackend for NokhwaCameraBackend {
         Ok(handles)
     }
 
-    fn default_camera() -> Result<Option<dyn super::CameraBackendHandle>, Self::Error> {
+    fn open_default(&self) -> Result<Option<Box<dyn super::Camera>>, Self::Error> {
         // Use heuristics to find the "default" camera.
         // We prefer non-"integrated" cameras and pick the lowest index.
-        let cameras = Self::enumerate()?;
+        let cameras = self.enumerate()?;
         let default_camera = cameras.into_iter().min_by_key(|handle| {
             let nokhwa_handle = handle
                 .as_any()
@@ -58,7 +58,7 @@ impl super::CameraBackend for NokhwaCameraBackend {
             };
             (integrated_penalty, info.index().index)
         });
-        Ok(default_camera)
+        Ok(default_camera.map(|c| Box::new(c)))
     }
 }
 
