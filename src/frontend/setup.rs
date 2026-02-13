@@ -8,13 +8,13 @@ use crate::{AppPage, MainAppMessage, PhotoBoothMessage};
 use super::{camera_feed::CameraFeed, main_app::MainApp};
 
 #[derive(Debug, Clone)]
-pub enum SetupMessage<C: crate::backend::cameras::CameraBackend + 'static> {
+pub enum SetupMessage<C: crate::backend::camera::CameraBackend + 'static> {
     CameraSelected(C::EnumeratedCamera),
     StartPressed,
 }
 
 pub struct Setup<
-    C: crate::backend::cameras::CameraBackend + 'static,
+    C: crate::backend::camera::CameraBackend + 'static,
     S: crate::backend::servers::ServerBackend + 'static,
 > {
     camera_options: Vec<C::EnumeratedCamera>,
@@ -23,7 +23,7 @@ pub struct Setup<
 }
 
 impl<
-        C: crate::backend::cameras::CameraBackend + 'static,
+        C: crate::backend::camera::CameraBackend + 'static,
         S: crate::backend::servers::ServerBackend + 'static,
     > Setup<C, S>
 {

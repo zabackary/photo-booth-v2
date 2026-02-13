@@ -15,7 +15,7 @@ pub enum CameraMessage {}
 
 /// Camera feed.
 #[derive(Debug, Clone)]
-pub struct CameraFeed<C: crate::backend::cameras::CameraBackendCamera + Send + 'static> {
+pub struct CameraFeed<C: crate::backend::camera::CameraBackendCamera + Send + 'static> {
     camera: Arc<Mutex<C>>,
     current_frame: Arc<Mutex<Option<Handle>>>,
     options: Arc<Mutex<CameraFeedOptions>>,
@@ -42,7 +42,7 @@ impl Default for CameraFeedOptions {
 }
 
 #[allow(unused)]
-impl<C: crate::backend::cameras::CameraBackendCamera + Send + 'static> CameraFeed<C> {
+impl<C: crate::backend::camera::CameraBackendCamera + Send + 'static> CameraFeed<C> {
     pub fn new(camera: C, options: CameraFeedOptions) -> (Self, Task<CameraMessage>) {
         let camera = Arc::new(Mutex::new(camera));
         let options = Arc::new(Mutex::new(options));

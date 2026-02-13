@@ -63,7 +63,7 @@ pub enum MainAppMessage<S: crate::backend::servers::ServerBackend + 'static> {
 }
 
 pub struct MainApp<
-    C: crate::backend::cameras::CameraBackend + 'static,
+    C: crate::backend::camera::CameraBackend + 'static,
     S: crate::backend::servers::ServerBackend + 'static,
 > {
     feed: CameraFeed<C::Camera>,
@@ -74,7 +74,7 @@ pub struct MainApp<
 }
 
 impl<
-        C: crate::backend::cameras::CameraBackend + 'static,
+        C: crate::backend::camera::CameraBackend + 'static,
         S: crate::backend::servers::ServerBackend + 'static,
     > MainApp<C, S>
 {

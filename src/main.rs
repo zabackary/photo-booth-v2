@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use backend::{
-    cameras::{CameraBackend, DefaultCameraBackend},
+    camera::{CameraBackend, DefaultCameraBackend},
     servers::{DefaultServerBackend, ServerBackend},
 };
 use frontend::{
@@ -48,7 +48,7 @@ const PALETTE: Palette = Palette {
 };
 
 enum AppPage<
-    C: crate::backend::cameras::CameraBackend + 'static,
+    C: crate::backend::camera::CameraBackend + 'static,
     S: crate::backend::servers::ServerBackend + 'static,
 > {
     Setup(Setup<C, S>),
@@ -56,7 +56,7 @@ enum AppPage<
 }
 
 struct PhotoBoothApplication<
-    C: crate::backend::cameras::CameraBackend + 'static,
+    C: crate::backend::camera::CameraBackend + 'static,
     S: crate::backend::servers::ServerBackend + 'static,
 > {
     page: AppPage<C, S>,
@@ -65,7 +65,7 @@ struct PhotoBoothApplication<
 
 #[derive(Debug, Clone)]
 enum PhotoBoothMessage<
-    C: crate::backend::cameras::CameraBackend + 'static,
+    C: crate::backend::camera::CameraBackend + 'static,
     S: crate::backend::servers::ServerBackend + 'static,
 > {
     Setup(SetupMessage<C>),
@@ -87,7 +87,7 @@ enum KeyMessage {
 }
 
 impl<
-        C: crate::backend::cameras::CameraBackend + 'static + Clone,
+        C: crate::backend::camera::CameraBackend + 'static + Clone,
         S: crate::backend::servers::ServerBackend + 'static,
     > PhotoBoothApplication<C, S>
 {
