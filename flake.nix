@@ -28,6 +28,7 @@
           libclang
           linuxHeaders
           glibc.dev
+          libgphoto2
         ];
         buildInputs = with pkgs; [
           openssl
