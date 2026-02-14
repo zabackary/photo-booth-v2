@@ -31,7 +31,7 @@ pub trait PrinterBackendHandle: Debug + Display {
 
 /// A printer that can print photos
 #[async_trait::async_trait]
-pub trait Printer: Debug + Send {
+pub trait Printer: Debug + Send + Sync {
     /// Print a photo
     async fn print(&mut self, photo: &image::RgbaImage) -> Result<(), anyhow::Error>;
 }

@@ -10,9 +10,9 @@ use crate::backend::{
 
 mod camera;
 mod email;
-// mod printer;
-// mod renderer;
-// mod storage;
+mod printer;
+mod renderer;
+mod storage;
 
 /// A manager that handles connections to various backends for the rest of the application
 ///
@@ -115,7 +115,7 @@ impl BackendManager {
         };
         let email_backend = match config.email {
             #[cfg(feature = "email_gapps_script_webhook")]
-            crate::config::EmailConfig::GappsScriptWebhook { ref endpoint } => Some(Box::new(
+            Some(crate::config::EmailConfig::GappsScriptWebhook { ref endpoint }) => Some(Box::new(
                 crate::backend::email::gapps_script_webhook::GappsScriptWebhookEmailBackend::new(
                     reqwest::Url::parse(endpoint)
                         .context("invalid URL for Google Apps Script webhook email backend")?,
@@ -130,8 +130,8 @@ impl BackendManager {
                     ).await?)
             ) as Box<dyn EmailBackend>),
             #[cfg(feature = "mock")]
-            crate::config::EmailConfig::Mock => Some(Box::new(crate::backend::email::mock::MockEmailBackend {}) as Box<dyn EmailBackend>),
-            crate::config::EmailConfig::None => None,
+            Some(crate::config::EmailConfig::Mock) => Some(Box::new(crate::backend::email::mock::MockEmailBackend {}) as Box<dyn EmailBackend>),
+            None => None,
         };
 
         Ok(BackendManager::new(

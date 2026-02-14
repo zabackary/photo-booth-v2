@@ -9,10 +9,10 @@ pub struct Config {
     pub camera: CameraConfig,
     /// The printer backend to use, along with its settings
     #[serde(default)]
-    pub printer: PrinterConfig,
+    pub printer: Option<PrinterConfig>,
     /// The email backend to use, along with its settings
     #[serde(default)]
-    pub email: EmailConfig,
+    pub email: Option<EmailConfig>,
     /// The storage backend to use, along with its settings
     pub storage: StorageConfig,
     /// The renderer backend to use, along with its settings
@@ -58,20 +58,55 @@ pub enum CameraConfig {
     Mock,
 }
 
-/// The printer backend and its configration
-#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+/// The type of printer backend and its related configration
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrinterConfig {
+    /// The type of printer backend and its related configration
+    #[serde(flatten)]
+    pub backend: PrinterBackendConfig,
+
+    /// Whether to automatically duplicate a photo strip with a aspect ratio
+    /// less than half of the width of the paper to fill the paper when printing
+    pub auto_format: bool,
+
+    /// The horizontal resolution of the image to send to the printer
+    ///
+    /// For the Canon Selphy CP1500 printer printing Postcard, this should be
+    /// set to 300 dpi * 4 inches = 1179 pixels (using mm).
+    pub horizontal_resolution: u32,
+
+    /// The vertical resolution of the image to send to the printer
+    ///
+    /// For the Canon Selphy CP1500 printer printing Postcard, this should be
+    /// set to 300 dpi * 6 inches = 1746 pixels (using mm).
+    pub vertical_resolution: u32,
+
+    /// How much to scale the photo strip when printing, as a percentage
+    /// of the original size. This can be used to fit the photo strip better on
+    /// the paper
+    ///
+    /// The output resolution sent to the printer will be the same, but the
+    /// actual print will be scaled by this factor
+    #[serde(default = "default_scale")]
+    pub scale: f32,
+}
+
+fn default_scale() -> f32 {
+    1.0
+}
+
+/// The type of printer backend and its related configration
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
-pub enum PrinterConfig {
+pub enum PrinterBackendConfig {
     /// A mock printer backend that simulates a printer for testing and development
     #[cfg(feature = "mock")]
     Mock,
-    /// Don't print photos
-    #[default]
-    None,
 }
 
 /// The email backend and its configration
-#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum EmailConfig {
     /// An email backend that sends photos via email using a Google Apps Script webhook
@@ -83,9 +118,6 @@ pub enum EmailConfig {
     /// A mock email backend that simulates an email service for testing and development
     #[cfg(feature = "mock")]
     Mock,
-    /// Don't send emails
-    #[default]
-    None,
 }
 
 /// The storage backend and its configration

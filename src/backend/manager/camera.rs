@@ -23,19 +23,19 @@ impl CameraManager {
     /// the worker
     pub async fn new(
         camera_backend: Box<dyn CameraBackend>,
-    ) -> (Self, tokio::sync::mpsc::Receiver<()>) {
+    ) -> Result<(Self, tokio::sync::mpsc::Receiver<()>), anyhow::Error> {
         let initial_camera = match camera_backend.open_default().await {
             Ok(Some(camera)) => camera,
             Ok(None) => {
                 log::error!("Camera backend does not have a default camera");
-                panic!("Camera backend does not have a default camera");
+                anyhow::bail!("Camera backend does not have a default camera");
             }
             Err(e) => {
                 log::error!("Failed to open default camera from backend: {:?}", e);
-                panic!("Failed to open default camera from backend: {:?}", e);
+                anyhow::bail!("Failed to open default camera from backend: {:?}", e);
             }
         };
-        Self::with_camera(camera_backend, initial_camera)
+        Ok(Self::with_camera(camera_backend, initial_camera))
     }
 
     /// Starts the worker that manages the camera connection and frame
