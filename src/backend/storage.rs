@@ -11,7 +11,7 @@ pub mod mock;
 
 /// A storage backend for uploading photos
 #[async_trait::async_trait]
-pub trait StorageBackend {
+pub trait StorageBackend: Debug + Send + Sync + 'static {
     /// Upload a photo strip and individual photos, returning a handle to the uploaded content
     async fn upload(
         &self,
