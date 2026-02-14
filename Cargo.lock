@@ -3713,6 +3713,7 @@ dependencies = [
  "chrono",
  "dotenv_codegen",
  "env_logger",
+ "futures",
  "gcp_auth",
  "gphoto2",
  "iced",
