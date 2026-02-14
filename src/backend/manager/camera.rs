@@ -19,12 +19,31 @@ pub struct CameraManager {
 }
 
 impl CameraManager {
+    /// Create a new [`CameraManager`] with the given camera backend and starts
+    /// the worker
+    pub async fn new(
+        camera_backend: Box<dyn CameraBackend>,
+    ) -> (Self, tokio::sync::mpsc::Receiver<()>) {
+        let initial_camera = match camera_backend.open_default().await {
+            Ok(Some(camera)) => camera,
+            Ok(None) => {
+                log::error!("Camera backend does not have a default camera");
+                panic!("Camera backend does not have a default camera");
+            }
+            Err(e) => {
+                log::error!("Failed to open default camera from backend: {:?}", e);
+                panic!("Failed to open default camera from backend: {:?}", e);
+            }
+        };
+        Self::with_camera(camera_backend, initial_camera)
+    }
+
     /// Starts the worker that manages the camera connection and frame
     /// and initializes the camera manager
     ///
     /// It returns a receiver that outputs `()` when a new preview frame is
     /// available.
-    pub fn new(
+    pub fn with_camera(
         camera_backend: Box<dyn CameraBackend>,
         initial_camera: Box<dyn Camera>,
     ) -> (Self, tokio::sync::mpsc::Receiver<()>) {
