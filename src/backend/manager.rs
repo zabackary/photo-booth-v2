@@ -9,11 +9,11 @@ use crate::backend::{
     storage::StorageBackend,
 };
 
-mod camera;
-mod email;
-mod printer;
-mod renderer;
-mod storage;
+pub mod camera;
+pub mod email;
+pub mod printer;
+pub mod renderer;
+pub mod storage;
 
 /// A manager that handles connections to various backends for the rest of the application
 ///
