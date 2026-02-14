@@ -1,57 +1,46 @@
 use iced::{
-    widget::{button, column, container, pick_list, text},
     Alignment, Element, Length, Task,
+    widget::{button, column, container, text},
 };
 
-use crate::{AppPage, MainAppMessage, PhotoBoothMessage};
+use crate::frontend::{AppPage, PhotoBoothMessage};
 
 use super::{camera_feed::CameraFeed, main_app::MainApp};
 
 #[derive(Debug, Clone)]
-pub enum SetupMessage<C: crate::backend::camera::CameraBackend + 'static> {
-    CameraSelected(C::EnumeratedCamera),
+pub enum SetupMessage {
     StartPressed,
 }
 
-pub struct Setup<
-    C: crate::backend::camera::CameraBackend + 'static,
-    S: crate::backend::servers::ServerBackend + 'static,
-> {
-    camera_options: Vec<C::EnumeratedCamera>,
-    camera_option: Option<C::EnumeratedCamera>,
-    pub new_page: Option<Box<(AppPage<C, S>, Task<PhotoBoothMessage<C, S>>)>>,
+pub struct Setup {
+    pub new_page: Option<Box<(AppPage, Task<PhotoBoothMessage>)>>,
+
+    manager: crate::backend::manager::BackendManager,
 }
 
-impl<
-        C: crate::backend::camera::CameraBackend + 'static,
-        S: crate::backend::servers::ServerBackend + 'static,
-    > Setup<C, S>
-{
-    pub fn new() -> Self {
+impl Setup {
+    pub fn new(manager: crate::backend::manager::BackendManager) -> Self {
         Self {
-            camera_options: C::enumerate_cameras().unwrap(),
-            camera_option: None,
             new_page: None,
+            manager,
         }
     }
 
-    pub fn update(&mut self, message: SetupMessage<C>) -> Task<SetupMessage<C>> {
+    pub fn update(&mut self, message: SetupMessage) -> Task<SetupMessage> {
         match message {
-            SetupMessage::CameraSelected(new) => {
-                self.camera_option = Some(new);
-                Task::none()
-            }
+            // SetupMessage::CameraSelected(new) => {
+            //     self.camera_option = Some(new);
+            //     Task::none()
+            // }
             SetupMessage::StartPressed => {
-                let (feed, task) = CameraFeed::new(
-                    C::open_camera(self.camera_option.clone().unwrap()).unwrap(),
-                    Default::default(),
-                );
+                let (feed, task) =
+                    CameraFeed::new(self.manager.camera_manager.clone(), Default::default());
                 let (app, app_task) = MainApp::new(feed);
                 self.new_page = Some(Box::new((
                     AppPage::MainApp(app),
                     Task::batch([
-                        task.map(MainAppMessage::Camera)
-                            .map(PhotoBoothMessage::MainApp),
+                        // task.map(MainAppMessage::Camera)
+                        //     .map(PhotoBoothMessage::MainApp),
                         app_task.map(PhotoBoothMessage::MainApp),
                     ]),
                 )));
@@ -65,17 +54,17 @@ impl<
         }
     }
 
-    pub fn view(&self) -> Element<SetupMessage<C>> {
+    pub fn view(&self) -> Element<SetupMessage> {
         container(
             container(
                 column([
                     text("Setup").size(32).into(),
-                    pick_list(
-                        self.camera_options.as_ref(),
-                        self.camera_option.as_ref(),
-                        SetupMessage::CameraSelected,
-                    )
-                    .into(),
+                    // pick_list(
+                    //     self.camera_options.as_ref(),
+                    //     self.camera_option.as_ref(),
+                    //     SetupMessage::CameraSelected,
+                    // )
+                    // .into(),
                     button("Start")
                         .on_press_maybe(
                             self.camera_option
