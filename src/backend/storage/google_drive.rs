@@ -245,12 +245,12 @@ impl GoogleAuthenticationManager {
 
 /// Returned file metadata from Google Drive API
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct PartialFileMetadata {
+pub(in crate::backend) struct PartialFileMetadata {
     id: String,
 }
 
 /// Upload a file to Google Drive
-pub(crate) async fn upload_file(
+pub(in crate::backend) async fn upload_file(
     content: Vec<u8>,
     name: String,
     content_type: &'static str,
