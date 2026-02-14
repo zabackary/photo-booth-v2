@@ -21,7 +21,7 @@ pub trait StorageBackend: Debug + Send + Sync + 'static {
 }
 
 /// A handle to a stored photo strip and its associated photos
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum StorageHandle {
     /// A reference to a Google Drive folder and the strip it contains, both by

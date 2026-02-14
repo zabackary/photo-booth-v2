@@ -16,7 +16,7 @@ pub trait EmailBackend: Debug + Send + Sync + 'static {
 }
 
 /// Information needed to send an email with a link to the photo strip
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct EmailPayload {
     /// The storage handle for the uploaded photo strip and photos
