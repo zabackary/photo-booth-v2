@@ -85,7 +85,7 @@ impl PartialEmailMetadata {
 
 #[async_trait::async_trait]
 impl super::EmailBackend for GappsScriptWebhookEmailBackend {
-    async fn send_email(self, payload: super::EmailPayload) -> Result<(), anyhow::Error> {
+    async fn send_email(&self, payload: super::EmailPayload) -> Result<(), anyhow::Error> {
         let crate::backend::storage::StorageHandle::GoogleDriveFolder { folder_id, .. } =
             payload.storage_handle
         else {

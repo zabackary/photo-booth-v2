@@ -12,7 +12,7 @@ pub trait EmailBackend: Debug + Send + Sync + 'static {
     ///
     /// Some backends may not support all storage backends and may return errors
     /// if the storage handle is incompatible with the email backend.
-    async fn send_email(self, payload: EmailPayload) -> Result<(), anyhow::Error>;
+    async fn send_email(&self, payload: EmailPayload) -> Result<(), anyhow::Error>;
 }
 
 /// Information needed to send an email with a link to the photo strip
