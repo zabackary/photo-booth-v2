@@ -40,6 +40,9 @@ impl CameraManager {
                 reconnecting: reconnecting.clone(),
                 frame_still_command_tx: Arc::new(tokio::sync::Mutex::new(frame_still_command_tx)),
                 frame_still_rx: Arc::new(tokio::sync::Mutex::new(frame_still_rx)),
+                // It's very clunky to have a worker task for this, but Camera
+                // is not Sync, so we can't share it across threads without a
+                // worker task to manage it. (this is mostly a limitation of nokhwa)
                 _task: std::sync::Arc::new(tokio::task::spawn(async move {
                     let mut camera = initial_camera;
                     loop {
