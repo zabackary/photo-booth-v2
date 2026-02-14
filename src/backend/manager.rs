@@ -63,6 +63,15 @@ impl BackendManager {
         })
     }
 
+    /// Takes the receiver for camera frames
+    pub fn take_camera_frame_rx(&self) -> Option<tokio::sync::mpsc::Receiver<()>> {
+        let mut guard = self
+            .camera_frame_rx
+            .lock()
+            .expect("failed to lock camera frame receiver mutex");
+        guard.take()
+    }
+
     /// Create a new [`BackendManager`] from a user-provided configuration
     ///
     /// This initializes all backends specified in the configuration, and
