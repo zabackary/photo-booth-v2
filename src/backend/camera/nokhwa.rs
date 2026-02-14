@@ -11,36 +11,40 @@ use tokio::sync::oneshot;
 #[derive(Debug, Clone, Copy)]
 pub struct NokhwaCameraBackend {}
 
+async fn initialize_nokhwa() -> Result<(), anyhow::Error> {
+    let (tx, rx) = oneshot::channel::<bool>();
+    let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
+
+    nokhwa::nokhwa_initialize(move |success| {
+        log::trace!(
+            "Nokhwa initialization callback called with success={}",
+            success
+        );
+        // presumably this callback is only called once, but it has an `Fn`
+        // signature so according to the type system it could be called
+        // multiple times
+        if let Some(tx) = tx.lock().unwrap().take() {
+            let _ = tx.send(success);
+        }
+    });
+
+    Ok(rx
+        .await
+        .unwrap()
+        .then(|| ())
+        .with_context(|| "failed to initialize nokhwa camera backend")?)
+}
+
+impl NokhwaCameraBackend {
+    pub async fn new() -> Result<Self, anyhow::Error> {
+        initialize_nokhwa().await?;
+        Ok(NokhwaCameraBackend {})
+    }
+}
+
 #[async_trait::async_trait]
 impl super::CameraBackend for NokhwaCameraBackend {
-    async fn initialize(&self) -> Result<(), anyhow::Error> {
-        let (tx, rx) = oneshot::channel::<bool>();
-        let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
-
-        nokhwa::nokhwa_initialize(move |success| {
-            log::trace!(
-                "Nokhwa initialization callback called with success={}",
-                success
-            );
-            // presumably this callback is only called once, but it has an `Fn`
-            // signature so according to the type system it could be called
-            // multiple times
-            if let Some(tx) = tx.lock().unwrap().take() {
-                let _ = tx.send(success);
-            }
-        });
-
-        Ok(rx
-            .await
-            .unwrap()
-            .then(|| ())
-            .with_context(|| "failed to initialize nokhwa camera backend")?)
-    }
-
     async fn enumerate(&self) -> Result<Vec<Box<dyn super::CameraBackendHandle>>, anyhow::Error> {
-        if !nokhwa::nokhwa_check() {
-            anyhow::bail!("nokhwa is not initialized");
-        }
         let cameras = nokhwa::query(nokhwa::utils::ApiBackend::Auto)?;
         let handles: Vec<Box<dyn super::CameraBackendHandle>> = cameras
             .into_iter()
