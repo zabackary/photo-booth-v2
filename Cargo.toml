@@ -39,6 +39,7 @@ regex = "1.11.1"
 async-trait = "0.1.89"
 anyhow = "1.0.101"
 futures = "0.3.31"
+hex_color = { version = "3.0.0", features = ["serde"] }
 
 [features]
 default = [

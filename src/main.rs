@@ -11,45 +11,8 @@ use std::time::Duration;
 use iced::{keyboard::Key, theme::Palette, Font, Task};
 
 mod backend;
+mod config;
 // mod frontend;
-
-const SERVICE_ACCOUNT_KEY_PATH: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/service_account_key.json");
-const DRIVE_FOLDER_ID: &str = dotenv!("DRIVE_FOLDER_ID");
-
-const PALETTE: Palette = Palette {
-    background: iced::Color {
-        r: 187 as f32 / 255.0,
-        g: 187 as f32 / 255.0,
-        b: 221 as f32 / 255.0,
-        a: 1.0,
-    },
-    text: iced::Color {
-        r: 255 as f32 / 255.0,
-        g: 246 as f32 / 255.0,
-        b: 221 as f32 / 255.0,
-        a: 1.0,
-    },
-    primary: iced::Color {
-        r: 0 as f32 / 255.0,
-        g: 0 as f32 / 255.0,
-        b: 128 as f32 / 255.0,
-        a: 1.0,
-    },
-    success: iced::Color {
-        r: 0x00 as f32 / 255.0,
-        g: 0xff as f32 / 255.0,
-        b: 0x00 as f32 / 255.0,
-
-        a: 1.0,
-    },
-    danger: iced::Color {
-        r: 0xff as f32 / 255.0,
-        g: 0x00 as f32 / 255.0,
-        b: 0x00 as f32 / 255.0,
-        a: 1.0,
-    },
-};
 
 // enum AppPage<
 //     C: crate::backend::camera::CameraBackend + 'static,
