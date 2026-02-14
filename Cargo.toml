@@ -46,6 +46,7 @@ default = [
   "camera_gphoto2",
   "storage_google_drive",
   "storage_local_filesystem",
+  "email_gapps_script_webhook",
   "mock",
 ]
 fast_animations = []
@@ -53,6 +54,7 @@ mock = []
 camera_nokhwa = ["dep:nokhwa"]
 camera_gphoto2 = ["dep:gphoto2"]
 storage_google_drive = ["dep:gcp_auth"]
+email_gapps_script_webhook = []
 storage_local_filesystem = []
 
 # The following lines from https://bevyengine.org/learn/quick-start/getting-started/setup/

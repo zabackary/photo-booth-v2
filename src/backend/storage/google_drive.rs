@@ -40,7 +40,7 @@ impl GoogleDriveStorageBackend {
     }
 
     /// The scopes required for Google Drive API access
-    pub const OAUTH_SCOPES: &[&str] = &["https://www.googleapis.com/auth/drive"];
+    pub const OAUTH_SCOPES: &'static [&'static str] = &["https://www.googleapis.com/auth/drive"];
 }
 
 #[async_trait::async_trait]
@@ -245,7 +245,7 @@ struct PartialFileMetadata {
 }
 
 /// Upload a file to Google Drive
-async fn upload_file(
+pub(crate) async fn upload_file(
     content: Vec<u8>,
     name: String,
     content_type: &'static str,
