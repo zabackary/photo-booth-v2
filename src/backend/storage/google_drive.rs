@@ -10,8 +10,6 @@ use reqwest::{
 use serde_json::json;
 use tokio::try_join;
 
-const DRIVE_SCOPES: &[&str] = &["https://www.googleapis.com/auth/drive"];
-
 /// A storage backend using Google Drive and a service account to upload photos
 #[derive(Debug, Clone)]
 pub struct GoogleDriveStorageBackend {
@@ -21,21 +19,18 @@ pub struct GoogleDriveStorageBackend {
 }
 
 impl GoogleDriveStorageBackend {
-    /// Create a new Google Drive storage backend with the given folder ID and service account key file path
+    /// Create a new Google Drive storage backend with the given folder ID and token-generating auth manager
     ///
     /// The folder ID is the ID of the folder in Google Drive where photos will
     /// be uploaded. It should be shared with the service account email address
     /// with Editor permissions.
-    pub async fn new(folder_id: String, service_account_key: &Path) -> Result<Self, anyhow::Error> {
+    pub async fn new(
+        folder_id: String,
+        auth_manager: GoogleAuthenticationManager,
+    ) -> Result<Self, anyhow::Error> {
         let http_client = reqwest::ClientBuilder::new()
             .build()
             .with_context(|| "could not build http client")?;
-        let auth_manager = GoogleAuthenticationManager::from_service_account_key(
-            DRIVE_SCOPES.iter().map(|s| s.to_string()).collect(),
-            service_account_key,
-        )
-        .await
-        .with_context(|| "could not create service account")?;
 
         Ok(GoogleDriveStorageBackend {
             http_client,
@@ -43,6 +38,9 @@ impl GoogleDriveStorageBackend {
             folder_id,
         })
     }
+
+    /// The scopes required for Google Drive API access
+    pub const OAUTH_SCOPES: &[&str] = &["https://www.googleapis.com/auth/drive"];
 }
 
 #[async_trait::async_trait]
@@ -216,6 +214,7 @@ pub struct GoogleAuthenticationManager {
 }
 
 impl GoogleAuthenticationManager {
+    /// Create a new GoogleAuthenticationManager from a service account key file and scopes
     pub async fn from_service_account_key(scopes: Vec<String>, file_path: &Path) -> Self {
         let content = tokio::fs::read_to_string(file_path)
             .await
@@ -228,6 +227,9 @@ impl GoogleAuthenticationManager {
         }
     }
 
+    /// Get an authentication token
+    ///
+    /// This should not be cached, as tokens are cached and refreshed automatically.
     pub async fn token(&self) -> Result<gcp_auth::Token, anyhow::Error> {
         self.service_account
             .token(&self.scopes)
