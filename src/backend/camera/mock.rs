@@ -22,6 +22,7 @@ impl super::CameraBackend for MockCameraBackend {
     }
 
     async fn open_default(&self) -> Result<Option<Box<dyn super::Camera>>, Self::Error> {
+        log::info!("Opening default mock camera");
         Ok(Some(Box::new(MockCamera {}) as Box<dyn super::Camera>))
     }
 }
@@ -43,6 +44,7 @@ impl Display for MockCameraHandle {
 
 impl super::CameraBackendHandle for MockCameraHandle {
     fn open(&self) -> Result<Box<dyn super::Camera>, anyhow::Error> {
+        log::info!("Opening mock camera: {}", self);
         Ok(Box::new(MockCamera {}))
     }
 }
