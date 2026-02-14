@@ -27,8 +27,6 @@ impl SimpleRendererBackend {
     ) -> Result<image::RgbaImage, anyhow::Error> {
         let mut strip = image::RgbaImage::new(overlay.width(), overlay.height());
 
-        assert!(photos.len() == 4, "Expected 4 photos");
-
         for &(ref frame, photo) in photos {
             let x = frame.x as u32;
             let y = frame.y as u32;
