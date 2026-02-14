@@ -1,25 +1,21 @@
 mod border_radius;
 
+use iced::Task;
 use iced::border::Radius;
 use iced::widget::image::Handle;
-use iced::Task;
-use image::RgbaImage;
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc::{self, Receiver};
-use tokio::time;
 
 #[derive(Debug, Clone)]
-pub enum CameraMessage {}
+pub enum CameraMessage {
+    FrameReceived,
+}
 
 /// Camera feed.
 #[derive(Debug, Clone)]
-pub struct CameraFeed<C: crate::backend::camera::CameraBackendCamera + Send + 'static> {
-    camera: Arc<Mutex<C>>,
+pub struct CameraFeed {
     current_frame: Arc<Mutex<Option<Handle>>>,
     options: Arc<Mutex<CameraFeedOptions>>,
-    rx: Rc<RefCell<Option<Receiver<Handle>>>>,
+    manager: crate::backend::manager::camera::CameraManager,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -41,42 +37,20 @@ impl Default for CameraFeedOptions {
     }
 }
 
-#[allow(unused)]
-impl<C: crate::backend::camera::CameraBackendCamera + Send + 'static> CameraFeed<C> {
-    pub fn new(camera: C, options: CameraFeedOptions) -> (Self, Task<CameraMessage>) {
-        let camera = Arc::new(Mutex::new(camera));
-        let options = Arc::new(Mutex::new(options));
-        let (tx, mut rx) = mpsc::channel(2);
-        let camera_clone = camera.clone();
-        let options_clone = options.clone();
-        tokio::spawn(async move {
-            let mut interval = time::interval(std::time::Duration::from_millis(33));
-            loop {
-                interval.tick().await;
-                let frame = {
-                    let mut guard = camera_clone.lock().expect("failed to lock camera mutex");
-                    guard.capture_video_frame()
-                };
-                if let Ok(frame) = frame {
-                    let handle = {
-                        let options = options_clone.lock().expect("failed to lock options mutex");
-                        let processed = image_postprocessing(frame, *options);
-                        Handle::from_rgba(
-                            processed.width(),
-                            processed.height(),
-                            processed.into_raw(),
-                        )
-                    };
-                    let _ = tx.send(handle).await;
-                }
-            }
-        });
+impl CameraFeed {
+    /// Create the camera feed.
+    ///
+    /// The caller is responsible for ensuring `update` is called by the
+    /// manager's rx for camera frames.
+    pub fn new(
+        manager: crate::backend::manager::camera::CameraManager,
+        options: CameraFeedOptions,
+    ) -> (Self, Task<CameraMessage>) {
         (
             CameraFeed {
-                camera,
+                manager: manager.camera_manager.clone(),
                 current_frame: Arc::new(Mutex::new(None)),
-                options,
-                rx: Rc::new(RefCell::new(Some(rx))),
+                options: Arc::new(Mutex::new(options)),
             },
             Task::none(),
         )
@@ -90,46 +64,13 @@ impl<C: crate::backend::camera::CameraBackendCamera + Send + 'static> CameraFeed
         *self.options.lock().expect("failed to lock options mutex") = options;
     }
 
-    /// Take an image outside of the normal video capture cycle
-    pub async fn capture_still(
-        &mut self,
-        postprocessing_options: CameraFeedOptions,
-    ) -> Result<RgbaImage, C::Error> {
-        let cloned_camera = self.camera.clone();
-        let frame = tokio::task::spawn_blocking(move || {
-            cloned_camera
-                .lock()
-                .expect("failed to lock camera mutex")
-                .capture_still_frame()
-                .map(|x| image_postprocessing(x, postprocessing_options))
-        })
-        .await
-        .expect("capture_still task terminated unexpectedly")?;
-
-        Ok(frame)
-    }
-
-    /// Take an image outside of the normal video capture cycle
-    pub fn capture_still_sync(
-        &mut self,
-        postprocessing_options: CameraFeedOptions,
-    ) -> Result<RgbaImage, C::Error> {
-        let frame = self
-            .camera
-            .lock()
-            .expect("failed to lock camera mutex")
-            .capture_still_frame()
-            .map(|x| image_postprocessing(x, postprocessing_options))?;
-        Ok(frame)
-    }
-
     /// Get the image handle of the current frame.
     pub fn handle(&self) -> Handle {
-        if let Some(rx) = &mut *self.rx.borrow_mut() {
-            if let Ok(frame) = rx.try_recv() {
-                *self.current_frame.lock().expect("failed to lock frame") = Some(frame.clone());
-                return frame;
-            }
+        if let Some(frame) = self.manager.take_frame_preview() {
+            let frame = image_postprocessing(frame, self.options());
+            let handle = Handle::from_rgba(frame.width(), frame.height(), frame.into_raw());
+            *self.current_frame.lock().expect("failed to lock frame") = Some(handle.clone());
+            return handle;
         }
         self.current_frame
             .lock()
