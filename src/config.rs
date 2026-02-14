@@ -35,6 +35,12 @@ pub struct Config {
 
     /// The theme to use for the frontend
     pub theme: ThemeConfig,
+    /// The name of the event
+    pub event_name: String,
+    /// A description or privacy message to include in the email and frontend, if applicable
+    pub description: Option<String>,
+    /// Contact information to include in the email and frontend, if applicable
+    pub contact_email: Option<String>,
 }
 
 /// The camera backend and its configration

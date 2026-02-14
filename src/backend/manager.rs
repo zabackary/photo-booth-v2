@@ -9,7 +9,7 @@ use crate::backend::{
 };
 
 mod camera;
-// mod email;
+mod email;
 // mod printer;
 // mod renderer;
 // mod storage;
