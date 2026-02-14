@@ -8,6 +8,12 @@ use crate::backend::{
     storage::StorageBackend,
 };
 
+mod camera;
+// mod email;
+// mod printer;
+// mod renderer;
+// mod storage;
+
 /// A manager that handles connections to various backends for the rest of the application
 ///
 /// It's responsible for a variety of tasks:
@@ -17,6 +23,7 @@ use crate::backend::{
 /// * Handling the print queue and retrying failed prints
 /// * Handling the email queue
 /// * Handling the storage of photos and metadata
+#[derive(Debug)]
 pub struct BackendManager {
     camera_backend: Box<dyn CameraBackend>,
     storage_backend: Box<dyn StorageBackend>,
