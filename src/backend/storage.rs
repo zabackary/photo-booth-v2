@@ -42,7 +42,7 @@ impl StorageHandle {
                 "https://drive.google.com/uc?id={}&export=download",
                 strip_file_id
             )),
-            StorageHandle::LocalFilesystem { path } => None,
+            StorageHandle::LocalFilesystem { .. } => None,
         }
     }
 }

@@ -1,7 +1,8 @@
-use std::{io::Cursor, path::Path};
+use std::{io::Cursor, path::Path, sync::Arc};
 
 use anyhow::Context;
-use image::RgbaImage;
+use gcp_auth::TokenProvider as _;
+use image::{buffer::ConvertBuffer, RgbaImage};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     multipart::Part,
@@ -11,7 +12,7 @@ use serde_json::json;
 use tokio::try_join;
 
 /// A storage backend using Google Drive and a service account to upload photos
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GoogleDriveStorageBackend {
     http_client: Client,
     auth_manager: GoogleAuthenticationManager,
@@ -119,7 +120,7 @@ impl super::StorageBackend for GoogleDriveStorageBackend {
                     "image/png",
                     folder_id.clone(),
                     self.http_client.clone(),
-                    token,
+                    token.clone(),
                 )
                 .await?;
 
@@ -148,7 +149,7 @@ impl super::StorageBackend for GoogleDriveStorageBackend {
                     .with_context(|| "failed to send request to set permissions")?;
                 log::debug!("Permissions res: {:?}", res.text().await);
                 log::debug!("Uploaded strip and permissions");
-                Ok(strip_id)
+                Result::<String, anyhow::Error>::Ok(strip_id)
             },
             async {
                 // Upload the photos in parallel
@@ -160,6 +161,7 @@ impl super::StorageBackend for GoogleDriveStorageBackend {
                 let futures = photos.into_iter().enumerate().map(|(i, photo)| {
                     let folder_id = folder_id.clone();
                     let client = self.http_client.clone();
+                    let token = token.clone();
                     async move {
                         let mut encoded = Vec::new();
                         let mut encoded_cursor = Cursor::new(&mut encoded);
@@ -177,7 +179,7 @@ impl super::StorageBackend for GoogleDriveStorageBackend {
                             token,
                         )
                         .await?;
-                        Ok(())
+                        Result::<(), anyhow::Error>::Ok(())
                     }
                 });
 
@@ -207,7 +209,7 @@ impl super::StorageBackend for GoogleDriveStorageBackend {
 /// For now, this is just a thin wrapper around gcp_auth::CustomServiceAccount,
 /// but it may evolve to support OAuth 2.0 or other authentication methods in
 /// the future.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GoogleAuthenticationManager {
     service_account: gcp_auth::CustomServiceAccount,
     scopes: Vec<String>,
@@ -215,26 +217,29 @@ pub struct GoogleAuthenticationManager {
 
 impl GoogleAuthenticationManager {
     /// Create a new GoogleAuthenticationManager from a service account key file and scopes
-    pub async fn from_service_account_key(scopes: Vec<String>, file_path: &Path) -> Self {
+    pub async fn from_service_account_key(
+        scopes: Vec<String>,
+        file_path: &Path,
+    ) -> Result<Self, anyhow::Error> {
         let content = tokio::fs::read_to_string(file_path)
             .await
-            .expect("could not read service account key file");
+            .with_context(|| "could not read service account key file")?;
         let service_account = gcp_auth::CustomServiceAccount::from_json(&content)
             .with_context(|| "could not create service account from JSON")?;
-        Self {
+        Ok(Self {
             service_account,
             scopes,
-        }
+        })
     }
 
     /// Get an authentication token
     ///
     /// This should not be cached, as tokens are cached and refreshed automatically.
-    pub async fn token(&self) -> Result<gcp_auth::Token, anyhow::Error> {
+    pub async fn token(&self) -> Result<Arc<gcp_auth::Token>, anyhow::Error> {
         self.service_account
-            .token(&self.scopes)
+            .token(&self.scopes.iter().map(|s| s.as_str()).collect::<Vec<_>>())
             .await
-            .map_err(|e| anyhow::anyhow!("failed to get token: {}", e))
+            .with_context(|| "could not get authentication token from service account")
     }
 }
 
@@ -251,7 +256,7 @@ pub(crate) async fn upload_file(
     content_type: &'static str,
     parent_folder_id: String,
     http_client: Client,
-    token: gcp_auth::Token,
+    token: Arc<gcp_auth::Token>,
 ) -> Result<PartialFileMetadata, anyhow::Error> {
     log::trace!("Uploading file: {}", name);
     log::trace!("Content type: {}", content_type);

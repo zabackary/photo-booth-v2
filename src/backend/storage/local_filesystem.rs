@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
+use anyhow::Context as _;
 use image::RgbaImage;
 
 /// A storage backend that saves photos to the local filesystem
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct LocalFilesystemStorageBackend {
     base_path: PathBuf,
 }

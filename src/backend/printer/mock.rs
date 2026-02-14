@@ -8,12 +8,10 @@ pub struct MockPrinterBackend {}
 impl super::PrinterBackend for MockPrinterBackend {
     type Error = anyhow::Error;
 
-    async fn enumerate(&self) -> Result<Vec<dyn super::PrinterBackendHandle>, Self::Error> {
-        let mut vec = Vec::<dyn super::PrinterBackendHandle>::with_capacity(1);
-
-        vec.push(MockPrinterHandle {});
-
-        Ok(vec)
+    async fn enumerate(&self) -> Result<Vec<Box<dyn super::PrinterBackendHandle>>, Self::Error> {
+        Ok(vec![
+            Box::new(MockPrinterHandle {}) as Box<dyn super::PrinterBackendHandle>
+        ])
     }
 
     async fn open_default(&self) -> Result<Option<Box<dyn super::Printer>>, Self::Error> {
@@ -38,6 +36,7 @@ impl super::PrinterBackendHandle for MockPrinterHandle {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct MockPrinter {}
 
 #[async_trait::async_trait]

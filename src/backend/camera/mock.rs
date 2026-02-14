@@ -10,18 +10,14 @@ pub struct MockCameraBackend {}
 
 #[async_trait::async_trait]
 impl super::CameraBackend for MockCameraBackend {
-    type Error = anyhow::Error;
-
-    async fn enumerate(&self) -> Result<Vec<dyn super::CameraBackendHandle>, Self::Error> {
-        let mut vec = Vec::<dyn super::CameraBackendHandle>::with_capacity(2);
-
-        vec.push(MockCameraHandle { integrated: true });
-        vec.push(MockCameraHandle { integrated: false });
-
-        Ok(vec)
+    async fn enumerate(&self) -> Result<Vec<Box<dyn super::CameraBackendHandle>>, anyhow::Error> {
+        Ok(vec![
+            Box::new(MockCameraHandle { integrated: true }) as Box<dyn super::CameraBackendHandle>,
+            Box::new(MockCameraHandle { integrated: false }) as Box<dyn super::CameraBackendHandle>,
+        ])
     }
 
-    async fn open_default(&self) -> Result<Option<Box<dyn super::Camera>>, Self::Error> {
+    async fn open_default(&self) -> Result<Option<Box<dyn super::Camera>>, anyhow::Error> {
         log::info!("Opening default mock camera");
         Ok(Some(Box::new(MockCamera {}) as Box<dyn super::Camera>))
     }
@@ -49,6 +45,7 @@ impl super::CameraBackendHandle for MockCameraHandle {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct MockCamera {}
 
 impl super::Camera for MockCamera {

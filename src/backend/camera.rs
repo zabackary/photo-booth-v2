@@ -10,20 +10,18 @@ pub mod nokhwa;
 /// A camera backend
 #[async_trait::async_trait]
 pub trait CameraBackend: Debug + Send + 'static {
-    type Error: Debug + Send;
-
     /// Initialize this backend
-    async fn initialize(&self) -> Result<(), Self::Error> {
+    async fn initialize(&self) -> Result<(), anyhow::Error> {
         Ok(())
     }
 
     /// Enumerate available cameras attached to this backend
-    async fn enumerate(&self) -> Result<Vec<dyn CameraBackendHandle>, Self::Error>;
+    async fn enumerate(&self) -> Result<Vec<Box<dyn CameraBackendHandle>>, anyhow::Error>;
 
     /// Opens the default camera provided by this backend, if any
     ///
     /// It is up to the backend to determine what the "default" camera is
-    async fn open_default(&self) -> Result<Option<Box<dyn Camera>>, Self::Error> {
+    async fn open_default(&self) -> Result<Option<Box<dyn Camera>>, anyhow::Error> {
         Ok(None)
     }
 }

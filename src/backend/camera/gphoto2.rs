@@ -4,9 +4,15 @@ use anyhow::Context as _;
 use gphoto2::{list::CameraDescriptor, Camera, Context};
 
 // A camera backend using gphoto2 to read from supported cameras
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone)]
 pub struct GPhoto2Backend {
     context: Context,
+}
+
+impl std::fmt::Debug for GPhoto2Backend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "GPhoto2Backend")
+    }
 }
 
 impl GPhoto2Backend {
@@ -25,18 +31,22 @@ impl Default for GPhoto2Backend {
 
 #[async_trait::async_trait]
 impl super::CameraBackend for GPhoto2Backend {
-    type Error = gphoto2::Error;
-
-    async fn enumerate(&self) -> Result<Vec<dyn super::CameraBackendHandle>, Self::Error> {
-        let descriptors = self.context.list_cameras().await?;
-        let handles: Vec<dyn super::CameraBackendHandle> = descriptors
+    async fn enumerate(&self) -> Result<Vec<Box<dyn super::CameraBackendHandle>>, anyhow::Error> {
+        let descriptors = self
+            .context
+            .list_cameras()
+            .await
+            .with_context(|| "couldn't list cameras")?;
+        let handles: Vec<Box<dyn super::CameraBackendHandle>> = descriptors
             .into_iter()
-            .map(|desc| CameraDescriptorWrapper(desc))
+            .map(|desc| {
+                Box::new(CameraDescriptorWrapper(desc)) as Box<dyn super::CameraBackendHandle>
+            })
             .collect();
         Ok(handles)
     }
 
-    async fn open_default(&self) -> Result<Option<Box<dyn super::Camera>>, Self::Error> {
+    async fn open_default(&self) -> Result<Option<Box<dyn super::Camera>>, anyhow::Error> {
         Ok(self.context.autodetect_camera().await.ok().map(|camera| {
             Box::new(GPhoto2Camera::new(self.context.clone(), camera)) as Box<dyn super::Camera>
         }))
@@ -60,10 +70,16 @@ impl Display for CameraDescriptorWrapper {
 }
 
 /// A camera using gphoto2
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct GPhoto2Camera {
     camera: Camera,
     context: Context,
+}
+
+impl std::fmt::Debug for GPhoto2Camera {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "GPhoto2Camera")
+    }
 }
 
 impl GPhoto2Camera {
@@ -81,12 +97,12 @@ impl super::Camera for GPhoto2Camera {
         let img = image::load_from_memory(
             &fs.download(&path.folder(), &path.name())
                 .wait()
-                .with_context("failed to download still image")?
+                .with_context(|| "failed to download still image")?
                 .get_data(&self.context)
                 .wait()
-                .with_context("failed to get still image data")?,
+                .with_context(|| "failed to get still image data")?,
         )
-        .with_context("failed to decode still image")?;
+        .with_context(|| "failed to decode still image")?;
         Ok(img.to_rgba8())
     }
 
@@ -98,13 +114,13 @@ impl super::Camera for GPhoto2Camera {
                 // capture a preview image to the camera's internal buffer
                 .capture_preview()
                 .wait()
-                .with_context("failed to capture preview frame")?
+                .with_context(|| "failed to capture preview frame")?
                 // read that buffer
                 .get_data(&self.context)
                 .wait()
-                .with_context("failed to get preview image data")?,
+                .with_context(|| "failed to get preview image data")?,
         )
-        .with_context("failed to decode preview image")?;
+        .with_context(|| "failed to decode preview image")?;
         Ok(img.to_rgba8())
     }
 }

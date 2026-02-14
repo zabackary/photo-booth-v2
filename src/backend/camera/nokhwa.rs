@@ -3,7 +3,7 @@ use nokhwa::{
     self,
     pixel_format::RgbAFormat,
     utils::{CameraInfo, RequestedFormat},
-    Camera, NokhwaError,
+    Camera,
 };
 use tokio::sync::oneshot;
 
@@ -13,57 +13,65 @@ pub struct NokhwaCameraBackend {}
 
 #[async_trait::async_trait]
 impl super::CameraBackend for NokhwaCameraBackend {
-    type Error = NokhwaError;
-
-    async fn initialize(&self) -> Result<(), Self::Error> {
+    async fn initialize(&self) -> Result<(), anyhow::Error> {
         let (tx, rx) = oneshot::channel::<bool>();
+        let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
 
         nokhwa::nokhwa_initialize(move |success| {
-            let _ = tx.send(success);
+            log::trace!(
+                "Nokhwa initialization callback called with success={}",
+                success
+            );
+            // presumably this callback is only called once, but it has an `Fn`
+            // signature so according to the type system it could be called
+            // multiple times
+            if let Some(tx) = tx.lock().unwrap().take() {
+                let _ = tx.send(success);
+            }
         });
 
         Ok(rx
             .await
             .unwrap()
             .then(|| ())
-            .map_err(|_| NokhwaError::GeneralError("failed to initialize backend".into()))?)
+            .with_context(|| "failed to initialize nokhwa camera backend")?)
     }
 
-    fn enumerate(&self) -> Result<Vec<dyn super::CameraBackendHandle>, Self::Error> {
+    async fn enumerate(&self) -> Result<Vec<Box<dyn super::CameraBackendHandle>>, anyhow::Error> {
         if !nokhwa::nokhwa_check() {
-            return Err(NokhwaError::UnitializedError);
+            anyhow::bail!("nokhwa is not initialized");
         }
         let cameras = nokhwa::query(nokhwa::utils::ApiBackend::Auto)?;
-        let handles: Vec<dyn super::CameraBackendHandle> = cameras
+        let handles: Vec<Box<dyn super::CameraBackendHandle>> = cameras
             .into_iter()
-            .map(|info| NokhwaCameraHandle { info })
+            .map(|info| {
+                Box::new(NokhwaCameraHandle { info }) as Box<dyn super::CameraBackendHandle>
+            })
             .collect();
         Ok(handles)
     }
 
-    fn open_default(&self) -> Result<Option<Box<dyn super::Camera>>, Self::Error> {
+    async fn open_default(&self) -> Result<Option<Box<dyn super::Camera>>, anyhow::Error> {
         // Use heuristics to find the "default" camera.
         // We prefer non-"integrated" cameras and pick the lowest index.
-        let cameras = self.enumerate()?;
-        let default_camera = cameras.into_iter().min_by_key(|handle| {
-            let nokhwa_handle = handle
-                .as_any()
-                .downcast_ref::<NokhwaCameraHandle>()
-                .unwrap();
-            let info = &nokhwa_handle.info;
-            let integrated_penalty = if info.friendly_name.to_lowercase().contains("integrated") {
-                1
-            } else {
-                0
-            };
-            (integrated_penalty, info.index().index)
+        let cameras = nokhwa::query(nokhwa::utils::ApiBackend::Auto)?;
+        let default_camera = cameras.into_iter().min_by_key(|info| {
+            let integrated = info.description().to_lowercase().contains("integrated");
+            (integrated, info.index().as_index().unwrap_or(0))
         });
-        Ok(default_camera.map(|c| Box::new(c)))
+        Ok(default_camera.map(|info| Box::new(NokhwaCamera::new(info)) as Box<dyn super::Camera>))
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct NokhwaCameraHandle {
     info: CameraInfo,
+}
+
+impl std::fmt::Display for NokhwaCameraHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.info)
+    }
 }
 
 impl super::CameraBackendHandle for NokhwaCameraHandle {
@@ -76,6 +84,18 @@ pub struct NokhwaCamera {
     info: CameraInfo,
     video_camera: Option<Camera>,
     still_camera: Option<Camera>,
+}
+
+impl std::fmt::Debug for NokhwaCamera {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "NokhwaCamera(info={}, video_camera={}, still_camera={})",
+            self.info,
+            self.video_camera.is_some(),
+            self.still_camera.is_some()
+        )
+    }
 }
 
 impl NokhwaCamera {
@@ -104,9 +124,9 @@ impl super::Camera for NokhwaCamera {
         let camera = self.still_camera.as_mut().unwrap();
         camera
             .frame()
-            .with_context("couldn't capture still frame")?
+            .with_context(|| "couldn't capture still frame")?
             .decode_image::<RgbAFormat>()
-            .with_context("couldn't decode still frame")
+            .with_context(|| "couldn't decode still frame")
     }
 
     fn frame_preview(&mut self) -> Result<image::RgbaImage, anyhow::Error> {
@@ -124,8 +144,8 @@ impl super::Camera for NokhwaCamera {
         let camera = self.video_camera.as_mut().unwrap();
         camera
             .frame()
-            .with_context("couldn't capture preview frame")?
+            .with_context(|| "couldn't capture preview frame")?
             .decode_image::<RgbAFormat>()
-            .with_context("couldn't decode preview frame")
+            .with_context(|| "couldn't decode preview frame")
     }
 }

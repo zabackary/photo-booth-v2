@@ -1,12 +1,14 @@
+use anyhow::Context as _;
 use serde_json::json;
 
 /// An email backend for sending photos via email using a Google Apps Script webhook
 ///
 /// This email backend is heavily tied to the Google Drive storage backend.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct GappsScriptWebhookEmailBackend {
     client: reqwest::Client,
     auth_manager: crate::backend::storage::google_drive::GoogleAuthenticationManager,
+    endpoint: reqwest::Url,
 }
 
 impl GappsScriptWebhookEmailBackend {
@@ -31,6 +33,7 @@ impl GappsScriptWebhookEmailBackend {
         GappsScriptWebhookEmailBackend {
             client,
             auth_manager,
+            endpoint,
         }
     }
 
@@ -83,7 +86,8 @@ impl PartialEmailMetadata {
 #[async_trait::async_trait]
 impl super::EmailBackend for GappsScriptWebhookEmailBackend {
     async fn send_email(self, payload: super::EmailPayload) -> Result<(), anyhow::Error> {
-        let crate::backend::storage::StorageHandle::GoogleDrive { handle } = payload.storage_handle
+        let crate::backend::storage::StorageHandle::GoogleDriveFolder { folder_id, .. } =
+            payload.storage_handle
         else {
             anyhow::bail!("incompatible storage handle for GappsScriptWebhookEmailBackend");
         };
@@ -102,7 +106,7 @@ impl super::EmailBackend for GappsScriptWebhookEmailBackend {
             emails_content.to_string().into_bytes(),
             "metadata.json".to_string(),
             "application/json",
-            handle.folder_id.clone(),
+            folder_id.clone(),
             self.client.clone(),
             token.clone(),
         )
@@ -111,7 +115,7 @@ impl super::EmailBackend for GappsScriptWebhookEmailBackend {
         // send a POST request to ENDPOINT_URL with the folderId in JSON in the body
         if !emails.is_empty() {
             let body = json!({
-                "folderId": handle.folder_id,
+                "folderId": folder_id,
                 "backgroundBaseColor": color_hex(palette.background.base.color),
                 "backgroundBaseText": color_hex(palette.background.base.text),
                 "primaryBaseColor": color_hex(palette.primary.base.color),

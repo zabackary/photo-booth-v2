@@ -14,12 +14,12 @@ pub trait PrinterBackend: Debug + Send + 'static {
     }
 
     /// Enumerate available printers attached to this backend
-    async fn enumerate(&self) -> Result<Vec<dyn PrinterBackendHandle>, Self::Error>;
+    async fn enumerate(&self) -> Result<Vec<Box<dyn PrinterBackendHandle>>, Self::Error>;
 
     /// Opens the default printer provided by this backend, if any
     ///
     /// It is up to the backend to determine what the "default" printer is
-    async fn open_default(&self) -> Result<Option<Box<dyn PrinterBackendHandle>>, Self::Error> {
+    async fn open_default(&self) -> Result<Option<Box<dyn Printer>>, Self::Error> {
         Ok(None)
     }
 }
