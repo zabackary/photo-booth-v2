@@ -52,18 +52,19 @@ impl BackendManager {
                 Some((backend, config)) => Some(
                     printer::PrinterManager::new(backend, config)
                         .await
-                        .context("failed to initialize printer manager")?
-                    ),
+                        .context("failed to initialize printer manager")?,
+                ),
                 None => None,
             },
-            email_manager: email_backend.map(|(backend, config)| email::EmailManager::new(backend, config)),
+            email_manager: email_backend
+                .map(|(backend, config)| email::EmailManager::new(backend, config)),
             storage_manager: storage::StorageManager::new(storage_backend),
             renderer_manager: renderer::RendererManager::new(renderer_backend),
         })
     }
 
     /// Create a new [`BackendManager`] from a user-provided configuration
-    /// 
+    ///
     /// This initializes all backends specified in the configuration, and
     /// returns an error if any backend fails to initialize.
     pub async fn from_config(config: &crate::config::Config) -> Result<Self, anyhow::Error> {
@@ -93,7 +94,7 @@ impl BackendManager {
                         crate::backend::storage::google_drive::GoogleDriveStorageBackend::OAUTH_SCOPES
                             .iter()
                             .map(|s| s.to_string())
-                            .collect(), 
+                            .collect(),
                         config.google_service_account_key_file
                             .as_ref()
                             .context("google_service_account_key_file must be provided for Google Drive storage backend")?,
@@ -112,55 +113,59 @@ impl BackendManager {
         };
         let renderer_backend = match config.renderer {
             #[cfg(feature = "renderer_simple")]
-            crate::config::RendererConfig::Simple {
-                ref templates,
-            } => {
-                Box::new(crate::backend::renderer::simple::SimpleRendererBackend::new(templates.clone()))
-                    as Box<dyn RendererBackend>
-            }
+            crate::config::RendererConfig::Simple { ref templates } => Box::new(
+                crate::backend::renderer::simple::SimpleRendererBackend::new(templates.clone()),
+            )
+                as Box<dyn RendererBackend>,
         };
         let printer_backend = match &config.printer {
             Some(config_printer) => {
                 let backend = match config_printer.backend {
                     #[cfg(feature = "mock")]
-                    crate::config::PrinterBackendConfig::Mock => Box::new(crate::backend::printer::mock::MockPrinterBackend {}) as Box<dyn PrinterBackend>,
+                    crate::config::PrinterBackendConfig::Mock => {
+                        Box::new(crate::backend::printer::mock::MockPrinterBackend {})
+                            as Box<dyn PrinterBackend>
+                    }
                 };
-                Some((backend, printer::PrinterManagerConfig {
-                    auto_format: config_printer.auto_format,
-                    horizontal_resolution: config_printer.horizontal_resolution,
-                    vertical_resolution: config_printer.vertical_resolution,
-                    scale: config_printer.scale,
-                }))
-            },
+                Some((
+                    backend,
+                    printer::PrinterManagerConfig {
+                        auto_format: config_printer.auto_format,
+                        horizontal_resolution: config_printer.horizontal_resolution,
+                        vertical_resolution: config_printer.vertical_resolution,
+                        scale: config_printer.scale,
+                    },
+                ))
+            }
             None => None,
         };
         let email_backend = match &config.email {
             Some(config_email) => Some((match config_email {
-            #[cfg(feature = "email_gapps_script_webhook")]
-            crate::config::EmailConfig::GappsScriptWebhook { endpoint } => Box::new(
-                crate::backend::email::gapps_script_webhook::GappsScriptWebhookEmailBackend::new(
-                    reqwest::Url::parse(endpoint)
-                        .context("invalid URL for Google Apps Script webhook email backend")?,
-                    GoogleAuthenticationManager::from_service_account_key(
-                        crate::backend::storage::google_drive::GoogleDriveStorageBackend::OAUTH_SCOPES
-                            .iter()
-                            .map(|s| s.to_string())
-                            .collect(), 
-                        config.google_service_account_key_file
-                            .as_ref()
-                            .context("google_service_account_key_file must be provided for Google Drive storage backend")?,
-                    ).await?)
-            ) as Box<dyn EmailBackend>,
-            #[cfg(feature = "mock")]
-            crate::config::EmailConfig::Mock => Box::new(crate::backend::email::mock::MockEmailBackend {}) as Box<dyn EmailBackend>,
-        }, email::EmailManagerConfig {
-            contact_email: config.contact_email.clone().unwrap_or_default(),
-            description: config.description.clone().unwrap_or_default(),
-            event_name: config.event_name.clone(),
-            palette: iced::theme::palette::Extended::generate(config.theme.into()),
-        })),
-        None => None
-    };
+                #[cfg(feature = "email_gapps_script_webhook")]
+                crate::config::EmailConfig::GappsScriptWebhook { endpoint } => Box::new(
+                    crate::backend::email::gapps_script_webhook::GappsScriptWebhookEmailBackend::new(
+                        reqwest::Url::parse(endpoint)
+                            .context("invalid URL for Google Apps Script webhook email backend")?,
+                        GoogleAuthenticationManager::from_service_account_key(
+                            crate::backend::storage::google_drive::GoogleDriveStorageBackend::OAUTH_SCOPES
+                                .iter()
+                                .map(|s| s.to_string())
+                                .collect(),
+                            config.google_service_account_key_file
+                                .as_ref()
+                                .context("google_service_account_key_file must be provided for Google Drive storage backend")?,
+                        ).await?)
+                ) as Box<dyn EmailBackend>,
+                #[cfg(feature = "mock")]
+                crate::config::EmailConfig::Mock => Box::new(crate::backend::email::mock::MockEmailBackend {}) as Box<dyn EmailBackend>,
+            }, email::EmailManagerConfig {
+                contact_email: config.contact_email.clone().unwrap_or_default(),
+                description: config.description.clone().unwrap_or_default(),
+                event_name: config.event_name.clone(),
+                palette: iced::theme::palette::Extended::generate(config.theme.into()),
+            })),
+            None => None
+        };
 
         BackendManager::new(
             camera_backend,
@@ -168,6 +173,7 @@ impl BackendManager {
             renderer_backend,
             printer_backend,
             email_backend,
-        ).await
+        )
+        .await
     }
 }

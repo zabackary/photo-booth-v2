@@ -2,11 +2,11 @@ use std::{io::Cursor, path::Path, sync::Arc};
 
 use anyhow::Context;
 use gcp_auth::TokenProvider as _;
-use image::{buffer::ConvertBuffer, RgbaImage};
+use image::{RgbaImage, buffer::ConvertBuffer};
 use reqwest::{
+    Client,
     header::{HeaderMap, HeaderValue},
     multipart::Part,
-    Client,
 };
 use serde_json::json;
 use tokio::try_join;

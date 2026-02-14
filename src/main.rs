@@ -8,7 +8,7 @@ use std::time::Duration;
 //     main_app::{MainApp, MainAppMessage},
 //     setup::{Setup, SetupMessage},
 // };
-use iced::{keyboard::Key, theme::Palette, Font, Task};
+use iced::{Font, Task, keyboard::Key, theme::Palette};
 
 mod backend;
 mod config;

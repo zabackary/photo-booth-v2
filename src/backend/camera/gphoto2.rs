@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::Context as _;
-use gphoto2::{list::CameraDescriptor, Camera, Context};
+use gphoto2::{Camera, Context, list::CameraDescriptor};
 
 // A camera backend using gphoto2 to read from supported cameras
 #[derive(Clone)]

@@ -1,9 +1,8 @@
 use anyhow::Context;
 use nokhwa::{
-    self,
+    self, Camera,
     pixel_format::RgbAFormat,
     utils::{CameraInfo, RequestedFormat},
-    Camera,
 };
 use tokio::sync::oneshot;
 
