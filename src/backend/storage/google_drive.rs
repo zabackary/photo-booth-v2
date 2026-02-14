@@ -57,7 +57,7 @@ impl super::StorageBackend for GoogleDriveStorageBackend {
         &self,
         strip: RgbaImage,
         photos: Vec<RgbaImage>,
-    ) -> Result<super::StorageBackendHandle, anyhow::Error> {
+    ) -> Result<super::StorageHandle, anyhow::Error> {
         // sleep(Duration::from_secs(4)).await;
         let token = self
             .auth_manager
@@ -197,7 +197,7 @@ impl super::StorageBackend for GoogleDriveStorageBackend {
             }
         )?;
 
-        Ok(super::StorageBackendHandle::GoogleDriveFolder {
+        Ok(super::StorageHandle::GoogleDriveFolder {
             folder_id,
             strip_file_id: strip_id,
         })

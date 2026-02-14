@@ -17,9 +17,9 @@ impl super::StorageBackend for MockStorageBackend {
         &self,
         _strip: RgbaImage,
         _photos: Vec<RgbaImage>,
-    ) -> Result<super::StorageBackendHandle, anyhow::Error> {
+    ) -> Result<super::StorageHandle, anyhow::Error> {
         log::info!("Uploading to mock storage backend");
-        Ok(super::StorageBackendHandle::LocalFilesystem {
+        Ok(super::StorageHandle::LocalFilesystem {
             path: PathBuf::from(MOCK_PATH),
         })
     }

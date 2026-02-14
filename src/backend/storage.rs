@@ -17,13 +17,13 @@ pub trait StorageBackend {
         &self,
         strip: RgbaImage,
         photos: Vec<RgbaImage>,
-    ) -> Result<StorageBackendHandle, anyhow::Error>;
+    ) -> Result<StorageHandle, anyhow::Error>;
 }
 
-/// A handle to a storage backend
+/// A handle to a stored photo strip and its associated photos
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum StorageBackendHandle {
+pub enum StorageHandle {
     /// A reference to a Google Drive folder and the strip it contains, both by
     /// ID
     GoogleDriveFolder {
@@ -34,15 +34,15 @@ pub enum StorageBackendHandle {
     LocalFilesystem { path: PathBuf },
 }
 
-impl StorageBackendHandle {
+impl StorageHandle {
     /// Get a shareable link to the photo strip, if available
     pub fn strip_link(&self) -> Option<String> {
         match self {
-            StorageBackendHandle::GoogleDriveFolder { strip_file_id, .. } => Some(format!(
+            StorageHandle::GoogleDriveFolder { strip_file_id, .. } => Some(format!(
                 "https://drive.google.com/uc?id={}&export=download",
                 strip_file_id
             )),
-            StorageBackendHandle::LocalFilesystem { path } => None,
+            StorageHandle::LocalFilesystem { path } => None,
         }
     }
 }

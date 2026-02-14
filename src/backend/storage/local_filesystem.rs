@@ -25,7 +25,7 @@ impl super::StorageBackend for LocalFilesystemStorageBackend {
         &self,
         strip: RgbaImage,
         photos: Vec<RgbaImage>,
-    ) -> Result<super::StorageBackendHandle, anyhow::Error> {
+    ) -> Result<super::StorageHandle, anyhow::Error> {
         // Create a unique subdirectory for this upload using a timestamp
         let timestamp = chrono::Local::now().format("%Y%m%d%H%M%S");
         let upload_dir = self.base_path.join(format!("upload_{}", timestamp));
@@ -46,6 +46,6 @@ impl super::StorageBackend for LocalFilesystemStorageBackend {
                 .with_context(|| format!("failed to save photo {} to {:?}", i + 1, photo_path))?;
         }
 
-        Ok(super::StorageBackendHandle::LocalFilesystem { path: upload_dir })
+        Ok(super::StorageHandle::LocalFilesystem { path: upload_dir })
     }
 }
