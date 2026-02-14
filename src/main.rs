@@ -13,6 +13,10 @@ use iced::{keyboard::Key, theme::Palette, Font, Task};
 mod backend;
 mod frontend;
 
+const SERVICE_ACCOUNT_KEY_PATH: &str =
+    concat!(env!("CARGO_MANIFEST_DIR"), "/service_account_key.json");
+const DRIVE_FOLDER_ID: &str = dotenv!("DRIVE_FOLDER_ID");
+
 const PALETTE: Palette = Palette {
     background: iced::Color {
         r: 187 as f32 / 255.0,
