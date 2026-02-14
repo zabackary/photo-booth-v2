@@ -88,7 +88,10 @@ pub enum EmailConfig {
 pub enum StorageConfig {
     /// The Google Drive storage backend, which uses the Google Drive API to store photos and photo strips
     #[cfg(feature = "storage_google_drive")]
-    GoogleDrive,
+    GoogleDrive {
+        /// The ID of the Google Drive folder where photos and photo strips are saved
+        folder_id: String,
+    },
     /// A storage backend that saves locally to disk.
     #[cfg(feature = "storage_local_filesystem")]
     LocalFilesystem {
