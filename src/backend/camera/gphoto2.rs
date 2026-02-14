@@ -5,32 +5,32 @@ use gphoto2::{list::CameraDescriptor, Camera, Context};
 
 // A camera backend using gphoto2 to read from supported cameras
 #[derive(Clone)]
-pub struct GPhoto2Backend {
+pub struct GPhoto2CameraBackend {
     context: Context,
 }
 
-impl std::fmt::Debug for GPhoto2Backend {
+impl std::fmt::Debug for GPhoto2CameraBackend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "GPhoto2Backend")
+        write!(f, "GPhoto2CameraBackend")
     }
 }
 
-impl GPhoto2Backend {
+impl GPhoto2CameraBackend {
     pub fn new() -> Self {
-        GPhoto2Backend {
+        GPhoto2CameraBackend {
             context: Context::new().expect("failed to create gphoto2 context"),
         }
     }
 }
 
-impl Default for GPhoto2Backend {
+impl Default for GPhoto2CameraBackend {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait::async_trait]
-impl super::CameraBackend for GPhoto2Backend {
+impl super::CameraBackend for GPhoto2CameraBackend {
     async fn enumerate(&self) -> Result<Vec<Box<dyn super::CameraBackendHandle>>, anyhow::Error> {
         let descriptors = self
             .context
