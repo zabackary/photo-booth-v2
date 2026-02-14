@@ -24,8 +24,8 @@ impl GappsScriptWebhookEmailBackend {
     ///
     /// [`GoogleAuthenticationManager`]: crate::backend::storage::google_drive::GoogleAuthenticationManager
     pub fn new(
-        auth_manager: crate::backend::storage::google_drive::GoogleAuthenticationManager,
         endpoint: reqwest::Url,
+        auth_manager: crate::backend::storage::google_drive::GoogleAuthenticationManager,
     ) -> Self {
         let client = reqwest::ClientBuilder::new()
             .build()
