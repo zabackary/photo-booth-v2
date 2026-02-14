@@ -8,14 +8,53 @@ pub struct PrinterManager {
     backend: Arc<tokio::sync::Mutex<Box<dyn crate::backend::printer::PrinterBackend>>>,
     reconnecting: Arc<std::sync::Mutex<bool>>,
     current_printer: Arc<tokio::sync::Mutex<Box<dyn crate::backend::printer::Printer>>>,
-    config: Arc<PrinterConfig>,
+    config: Arc<PrinterManagerConfig>,
+}
+
+/// Configration for the printer manager
+#[derive(Debug)]
+pub struct PrinterManagerConfig {
+    /// Whether to automatically duplicate a photo strip with a aspect ratio
+    /// less than half of the width of the paper to fill the paper when printing
+    pub auto_format: bool,
+
+    /// The horizontal resolution of the image to send to the printer
+    ///
+    /// For the Canon Selphy CP1500 printer printing Postcard, this should be
+    /// set to 300 dpi * 4 inches = 1179 pixels (using mm).
+    pub horizontal_resolution: u32,
+
+    /// The vertical resolution of the image to send to the printer
+    ///
+    /// For the Canon Selphy CP1500 printer printing Postcard, this should be
+    /// set to 300 dpi * 6 inches = 1746 pixels (using mm).
+    pub vertical_resolution: u32,
+
+    /// How much to scale the photo strip when printing, as a percentage
+    /// of the original size. This can be used to fit the photo strip better on
+    /// the paper
+    ///
+    /// The output resolution sent to the printer will be the same, but the
+    /// actual print will be scaled by this factor
+    pub scale: f32,
+}
+
+impl From<PrinterConfig> for PrinterManagerConfig {
+    fn from(config: PrinterConfig) -> Self {
+        PrinterManagerConfig {
+            auto_format: config.auto_format,
+            horizontal_resolution: config.horizontal_resolution,
+            vertical_resolution: config.vertical_resolution,
+            scale: config.scale,
+        }
+    }
 }
 
 impl PrinterManager {
     /// Create a new [`PrinterManager`] with the given printer backend
     pub async fn new(
         printer_backend: Box<dyn crate::backend::printer::PrinterBackend>,
-        printer_config: crate::config::PrinterConfig,
+        config: PrinterManagerConfig,
     ) -> Result<Self, anyhow::Error> {
         let initial_printer = match printer_backend.open_default().await {
             Ok(Some(printer)) => printer,
@@ -27,16 +66,12 @@ impl PrinterManager {
                 anyhow::bail!("Failed to open default printer from backend: {:?}", e);
             }
         };
-        Ok(Self::with_printer(
-            printer_backend,
-            printer_config,
-            initial_printer,
-        ))
+        Ok(Self::with_printer(printer_backend, config, initial_printer))
     }
 
     fn with_printer(
         printer_backend: Box<dyn crate::backend::printer::PrinterBackend>,
-        config: crate::config::PrinterConfig,
+        config: PrinterManagerConfig,
         initial_printer: Box<dyn crate::backend::printer::Printer>,
     ) -> Self {
         PrinterManager {

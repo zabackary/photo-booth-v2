@@ -154,7 +154,7 @@ pub enum RendererConfig {
 }
 
 /// The theme to use for the frontend
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct ThemeConfig {
     background: hex_color::HexColor,
     text: hex_color::HexColor,

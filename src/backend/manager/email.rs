@@ -4,30 +4,34 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct EmailManager(Arc<tokio::sync::Mutex<EmailManagerInner>>);
 
+/// Configration for the email manager
+#[derive(Debug)]
+pub struct EmailManagerConfig {
+    /// The color palette to use for the email
+    pub palette: iced::theme::palette::Extended,
+    /// The name of the event to include in the email
+    pub event_name: String,
+    /// The description of the event to include in the email
+    pub description: String,
+    /// The contact email to include in the email
+    pub contact_email: String,
+}
+
 #[derive(Debug)]
 struct EmailManagerInner {
     backend: Box<dyn crate::backend::email::EmailBackend>,
-    palette: iced::theme::palette::Extended,
-    event_name: String,
-    description: String,
-    contact_email: String,
+    config: EmailManagerConfig,
 }
 
 impl EmailManager {
     /// Create a new [`EmailManager`] with the given email backend
     pub fn new(
         email_backend: Box<dyn crate::backend::email::EmailBackend>,
-        palette: iced::theme::palette::Extended,
-        event_name: String,
-        description: String,
-        contact_email: String,
+        config: EmailManagerConfig,
     ) -> Self {
         EmailManager(Arc::new(tokio::sync::Mutex::new(EmailManagerInner {
             backend: email_backend,
-            palette,
-            event_name,
-            description,
-            contact_email,
+            config,
         })))
     }
 
@@ -53,10 +57,10 @@ impl EmailManager {
         let payload = crate::backend::email::EmailPayload {
             storage_handle,
             emails,
-            palette: guard.palette,
-            event_name: guard.event_name.clone(),
-            description: guard.description.clone(),
-            contact_email: guard.contact_email.clone(),
+            palette: guard.config.palette,
+            event_name: guard.config.event_name.clone(),
+            description: guard.config.description.clone(),
+            contact_email: guard.config.contact_email.clone(),
         };
         guard.backend.send_email(payload).await?;
         Ok(())
