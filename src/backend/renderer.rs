@@ -10,7 +10,7 @@ pub mod simple;
 /// may also choose to render multiple strips with different styles and and UI
 /// will allow the user to select which one they want to print and/or share.
 #[async_trait::async_trait]
-pub trait RendererBackend: Debug + Send + 'static {
+pub trait RendererBackend: Debug + Send + Sync + 'static {
     /// Render photo strips from the given individual photos
     ///
     /// The returned Vec must have at least one strip.

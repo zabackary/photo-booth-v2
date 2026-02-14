@@ -7,7 +7,7 @@ pub mod mock;
 
 /// A email backend for sending photos via email
 #[async_trait::async_trait]
-pub trait EmailBackend {
+pub trait EmailBackend: Debug + Send + Sync + 'static {
     /// Send an email with a link to the photo strip and/or the individual photos attached
     ///
     /// Some backends may not support all storage backends and may return errors

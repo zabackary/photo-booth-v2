@@ -9,7 +9,7 @@ pub mod nokhwa;
 
 /// A camera backend
 #[async_trait::async_trait]
-pub trait CameraBackend: Debug + Send + 'static {
+pub trait CameraBackend: Debug + Send + Sync + 'static {
     /// Enumerate available cameras attached to this backend
     async fn enumerate(&self) -> Result<Vec<Box<dyn CameraBackendHandle>>, anyhow::Error>;
 

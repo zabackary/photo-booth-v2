@@ -5,7 +5,7 @@ pub mod mock;
 
 /// A printer backend
 #[async_trait::async_trait]
-pub trait PrinterBackend: Debug + Send + 'static {
+pub trait PrinterBackend: Debug + Send + Sync + 'static {
     /// Initialize this backend
     async fn initialize(&self) -> Result<(), anyhow::Error> {
         Ok(())
