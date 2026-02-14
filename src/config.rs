@@ -40,6 +40,7 @@ pub struct Config {
 /// The camera backend and its configration
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum CameraConfig {
     /// The gphoto2 camera backend, which uses the gphoto2 library to connect to cameras
     #[cfg(feature = "camera_gphoto2")]
@@ -55,6 +56,7 @@ pub enum CameraConfig {
 /// The printer backend and its configration
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum PrinterConfig {
     /// A mock printer backend that simulates a printer for testing and development
     #[cfg(feature = "mock")]
@@ -67,6 +69,7 @@ pub enum PrinterConfig {
 /// The email backend and its configration
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum EmailConfig {
     /// An email backend that sends photos via email using a Google Apps Script webhook
     #[cfg(feature = "email_gapps_script_webhook")]
@@ -85,6 +88,7 @@ pub enum EmailConfig {
 /// The storage backend and its configration
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum StorageConfig {
     /// The Google Drive storage backend, which uses the Google Drive API to store photos and photo strips
     #[cfg(feature = "storage_google_drive")]
@@ -103,6 +107,7 @@ pub enum StorageConfig {
 /// The renderer backend and its configration
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum RendererConfig {
     /// A simple backend that superimposes a template on the captured images
     #[cfg(feature = "renderer_simple")]
