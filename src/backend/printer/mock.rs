@@ -27,11 +27,7 @@ pub struct MockPrinterHandle {}
 
 impl Display for MockPrinterHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.integrated {
-            write!(f, "Mock Integrated Printer")
-        } else {
-            write!(f, "Mock External Printer")
-        }
+        write!(f, "Mock Printer")
     }
 }
 
