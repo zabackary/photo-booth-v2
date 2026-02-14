@@ -6,20 +6,18 @@ pub mod mock;
 /// A printer backend
 #[async_trait::async_trait]
 pub trait PrinterBackend: Debug + Send + 'static {
-    type Error: Debug + Send;
-
     /// Initialize this backend
-    async fn initialize(&self) -> Result<(), Self::Error> {
+    async fn initialize(&self) -> Result<(), anyhow::Error> {
         Ok(())
     }
 
     /// Enumerate available printers attached to this backend
-    async fn enumerate(&self) -> Result<Vec<Box<dyn PrinterBackendHandle>>, Self::Error>;
+    async fn enumerate(&self) -> Result<Vec<Box<dyn PrinterBackendHandle>>, anyhow::Error>;
 
     /// Opens the default printer provided by this backend, if any
     ///
     /// It is up to the backend to determine what the "default" printer is
-    async fn open_default(&self) -> Result<Option<Box<dyn Printer>>, Self::Error> {
+    async fn open_default(&self) -> Result<Option<Box<dyn Printer>>, anyhow::Error> {
         Ok(None)
     }
 }

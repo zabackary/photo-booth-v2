@@ -6,15 +6,13 @@ pub struct MockPrinterBackend {}
 
 #[async_trait::async_trait]
 impl super::PrinterBackend for MockPrinterBackend {
-    type Error = anyhow::Error;
-
-    async fn enumerate(&self) -> Result<Vec<Box<dyn super::PrinterBackendHandle>>, Self::Error> {
+    async fn enumerate(&self) -> Result<Vec<Box<dyn super::PrinterBackendHandle>>, anyhow::Error> {
         Ok(vec![
             Box::new(MockPrinterHandle {}) as Box<dyn super::PrinterBackendHandle>
         ])
     }
 
-    async fn open_default(&self) -> Result<Option<Box<dyn super::Printer>>, Self::Error> {
+    async fn open_default(&self) -> Result<Option<Box<dyn super::Printer>>, anyhow::Error> {
         log::info!("Opening default mock printer");
         Ok(Some(Box::new(MockPrinter {}) as Box<dyn super::Printer>))
     }
