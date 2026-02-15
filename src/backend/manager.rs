@@ -1,5 +1,3 @@
-use anyhow::Context;
-#[cfg(feature = "storage_google_drive")]
 use anyhow::Context as _;
 
 #[cfg(feature = "storage_google_drive")]
@@ -32,7 +30,7 @@ pub struct BackendManager {
     pub storage_manager: storage::StorageManager,
     pub renderer_manager: renderer::RendererManager,
 
-    camera_frame_rx: std::sync::Arc<std::sync::Mutex<tokio::sync::mpsc::Receiver<()>>>,
+    camera_frame_rx: std::sync::Arc<std::sync::Mutex<Option<tokio::sync::mpsc::Receiver<()>>>>,
 }
 
 impl BackendManager {
@@ -47,7 +45,7 @@ impl BackendManager {
         let (camera_manager, camera_frame_rx) = camera::CameraManager::new(camera_backend).await?;
         Ok(BackendManager {
             camera_manager,
-            camera_frame_rx: std::sync::Arc::new(std::sync::Mutex::new(camera_frame_rx)),
+            camera_frame_rx: std::sync::Arc::new(std::sync::Mutex::new(Some(camera_frame_rx))),
             printer_manager: match printer_backend {
                 Some((backend, config)) => Some(
                     printer::PrinterManager::new(backend, config)
@@ -77,19 +75,19 @@ impl BackendManager {
     /// This initializes all backends specified in the configuration, and
     /// returns an error if any backend fails to initialize.
     pub async fn from_config(config: &crate::config::Config) -> Result<Self, anyhow::Error> {
-        let camera_backend = match config.camera {
+        let camera_backend = match config.camera.backend {
             #[cfg(feature = "camera_gphoto2")]
-            crate::config::CameraConfig::GPhoto2 => {
+            crate::config::CameraBackendConfig::GPhoto2 => {
                 Box::new(crate::backend::camera::gphoto2::GPhoto2CameraBackend::new())
                     as Box<dyn CameraBackend>
             }
             #[cfg(feature = "camera_nokhwa")]
-            crate::config::CameraConfig::Nokhwa => {
+            crate::config::CameraBackendConfig::Nokhwa => {
                 Box::new(crate::backend::camera::nokhwa::NokhwaCameraBackend::new().await?)
                     as Box<dyn CameraBackend>
             }
             #[cfg(feature = "mock")]
-            crate::config::CameraConfig::Mock => {
+            crate::config::CameraBackendConfig::Mock => {
                 Box::new(crate::backend::camera::mock::MockCameraBackend {})
                     as Box<dyn CameraBackend>
             }

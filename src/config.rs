@@ -43,10 +43,22 @@ pub struct Config {
     pub contact_email: Option<String>,
 }
 
+/// The type of camera backend and its configration
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CameraConfig {
+    /// The type of camera backend and its configration
+    #[serde(flatten)]
+    pub backend: CameraBackendConfig,
+
+    /// The aspect ratio to use when previewing the camera
+    pub preview_aspect_ratio: f32,
+}
+
 /// The camera backend and its configration
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
-pub enum CameraConfig {
+pub enum CameraBackendConfig {
     /// The gphoto2 camera backend, which uses the gphoto2 library to connect to cameras
     #[cfg(feature = "camera_gphoto2")]
     GPhoto2,
