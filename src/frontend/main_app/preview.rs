@@ -1,6 +1,6 @@
 use iced::{
-    widget::{column, vertical_space},
     Element,
+    widget::{column, space},
 };
 
 use crate::frontend::title_overlay::{supporting_text, title_text};
@@ -11,16 +11,23 @@ pub struct Preview;
 #[derive(Debug, Clone)]
 pub enum PreviewMessage {}
 
-#[derive(Debug, Clone)]
-pub enum PreviewEffect {}
+#[derive(Debug)]
+pub enum PreviewAction {
+    Task(iced::Task<PreviewMessage>),
+    None,
+}
 
 impl Preview {
     pub fn new() -> Self {
         Self
     }
 
-    pub fn update(&mut self, _message: PreviewMessage) -> Option<PreviewEffect> {
-        None
+    pub fn update(&mut self, _message: PreviewMessage) -> PreviewAction {
+        PreviewAction::None
+    }
+
+    pub fn subscription(&self) -> iced::Subscription<PreviewMessage> {
+        iced::Subscription::none()
     }
 
     pub fn view(&self) -> Element<PreviewMessage> {
@@ -29,7 +36,7 @@ impl Preview {
                 title_text("Get ready to take your pictures")
                     .width(iced::Length::Shrink)
                     .into(),
-                vertical_space().height(12.0).into(),
+                space().height(12.0).into(),
                 supporting_text("Press [SPACE] to start when you're ready.")
                     .width(iced::Length::Shrink)
                     .into(),
@@ -52,6 +59,7 @@ impl Preview {
                     ..Default::default()
                 },
                 shadow: Default::default(),
+                snap: true,
             }),
         )
         .center(iced::Length::Fill)

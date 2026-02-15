@@ -2,7 +2,7 @@
 use std::path::PathBuf;
 
 /// The configration for the application, including which backends to use and their settings
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     /// The camera backend to use, along with its settings
@@ -44,7 +44,7 @@ pub struct Config {
 }
 
 /// The type of camera backend and its configration
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CameraConfig {
     /// The type of camera backend and its configration
@@ -56,7 +56,7 @@ pub struct CameraConfig {
 }
 
 /// The camera backend and its configration
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum CameraBackendConfig {
     /// The gphoto2 camera backend, which uses the gphoto2 library to connect to cameras
@@ -71,7 +71,7 @@ pub enum CameraBackendConfig {
 }
 
 /// The type of printer backend and its related configration
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrinterConfig {
     /// The type of printer backend and its related configration
@@ -109,7 +109,7 @@ fn default_scale() -> f32 {
 }
 
 /// The type of printer backend and its related configration
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum PrinterBackendConfig {
     /// A mock printer backend that simulates a printer for testing and development
@@ -118,7 +118,7 @@ pub enum PrinterBackendConfig {
 }
 
 /// The email backend and its configration
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum EmailConfig {
     /// An email backend that sends photos via email using a Google Apps Script webhook
@@ -133,7 +133,7 @@ pub enum EmailConfig {
 }
 
 /// The storage backend and its configration
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum StorageConfig {
     /// The Google Drive storage backend, which uses the Google Drive API to store photos and photo strips
@@ -154,7 +154,7 @@ pub enum StorageConfig {
 }
 
 /// The renderer backend and its configration
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum RendererConfig {
     /// A simple backend that superimposes a template on the captured images
@@ -173,6 +173,7 @@ pub struct ThemeConfig {
     primary: hex_color::HexColor,
     success: hex_color::HexColor,
     danger: hex_color::HexColor,
+    warning: hex_color::HexColor,
 }
 
 impl From<ThemeConfig> for iced::theme::palette::Palette {
@@ -207,6 +208,12 @@ impl From<ThemeConfig> for iced::theme::palette::Palette {
                 config.danger.g,
                 config.danger.b,
                 config.danger.a as f32 / 255.0,
+            ),
+            warning: iced::Color::from_rgba8(
+                config.warning.r,
+                config.warning.g,
+                config.warning.b,
+                config.warning.a as f32 / 255.0,
             ),
         }
     }

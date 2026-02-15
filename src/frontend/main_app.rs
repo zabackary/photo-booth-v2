@@ -1,8 +1,7 @@
-use anim::Animation;
-use iced::{widget::image::Handle, ContentFit, Element, Length, Task};
+use iced::{ContentFit, Element, Length, Task, widget::image::Handle};
 use image::RgbaImage;
 
-use crate::{backend::render_take::render_take, AppPage, KeyMessage, PhotoBoothMessage, PALETTE};
+use crate::frontend::{AppPage, KeyMessage, PhotoBoothMessage};
 
 use super::{
     camera_feed::{CameraFeed, CameraFeedOptions},
@@ -10,102 +9,110 @@ use super::{
 };
 
 mod animations;
-mod capture_photos;
-mod email_entry;
-mod emailing;
-mod payment_required;
+// mod capture_photos;
+// mod email_entry;
+// mod emailing;
 mod preview;
-mod rendered_preview;
-mod status_overlay;
-mod student_id_entry;
+// mod rendered_preview;
+// mod status_overlay;
 
-use capture_photos::{CapturePhotos, CapturePhotosEffect, CapturePhotosMessage};
-use email_entry::{EmailEntry, EmailEntryEffect, EmailEntryMessage};
-use emailing::{Emailing, EmailingEffect, EmailingMessage};
-use payment_required::{PaymentRequired, PaymentRequiredEffect, PaymentRequiredMessage};
+// use capture_photos::{CapturePhotos, CapturePhotosEffect, CapturePhotosMessage};
+// use email_entry::{EmailEntry, EmailEntryEffect, EmailEntryMessage};
+// use emailing::{Emailing, EmailingEffect, EmailingMessage};
+// use payment_required::{PaymentRequired, PaymentRequiredEffect, PaymentRequiredMessage};
 use preview::{Preview, PreviewMessage};
-use rendered_preview::{RenderedPreview, RenderedPreviewEffect, RenderedPreviewMessage};
-use student_id_entry::{StudentIDEntry, StudentIDEntryEffect, StudentIDEntryMessage};
+// use rendered_preview::{RenderedPreview, RenderedPreviewEffect, RenderedPreviewMessage};
+// use student_id_entry::{StudentIDEntry, StudentIDEntryEffect, StudentIDEntryMessage};
 
-const PHOTO_ASPECT_RATIO: f32 = 3.0 / 2.0;
-const PHOTO_COUNT: usize = 4;
-
-enum MainAppState<UH: Clone> {
-    PaymentRequired(PaymentRequired),
+enum MainAppPage {
     Preview(Preview),
-    CapturePhotosPrepare {
-        ready_timeline: anim::Timeline<animations::ready::AnimationState>,
-    },
-    CapturePhotos(CapturePhotos),
-    RenderedPreview(RenderedPreview),
-    EmailEntry(EmailEntry<UH>),
-    Emailing(Emailing),
-    StudentIDEntry(StudentIDEntry<UH>),
+    // CapturePhotosPrepare {
+    //     ready_timeline: anim::Timeline<animations::ready::AnimationState>,
+    // },
+    // CapturePhotos(CapturePhotos),
+    // RenderedPreview(RenderedPreview),
+    // EmailEntry(EmailEntry),
+    // Emailing(Emailing),
+    // StudentIDEntry(StudentIDEntry),
 }
 
 #[derive(Debug, Clone)]
-pub enum MainAppMessage<S: crate::backend::servers::ServerBackend + 'static> {
-    Camera(super::camera_feed::CameraMessage),
-    Tick,
-    KeyReleased(KeyMessage),
-    CaptureStill,
-    Uploaded(Result<S::UploadHandle, String>),
-    Emailed(Result<(), String>),
-    OtherKeyPress,
-
-    EmailEntry(EmailEntryMessage),
-    StudentIDEntry(StudentIDEntryMessage),
-    PaymentRequired(PaymentRequiredMessage),
-    Emailing(EmailingMessage),
-    CapturePhotos(CapturePhotosMessage),
+pub enum MainAppMessage {
+    // KeyReleased(KeyMessage),
+    // UploadFinished(Result<crate::backend::storage::StorageHandle, String>),
+    // EmailFinished(Result<(), String>),
+    // PrintFinished(Result<(), String>),
+    // OtherKeyPress,
+    CameraFeed(super::camera_feed::CameraMessage),
+    // EmailEntry(EmailEntryMessage),
+    // PaymentRequired(PaymentRequiredMessage),
+    // Emailing(EmailingMessage),
+    // CapturePhotos(CapturePhotosMessage),
     Preview(PreviewMessage),
-    RenderedPreview(RenderedPreviewMessage),
+    // RenderedPreview(RenderedPreviewMessage),
 }
 
-pub struct MainApp<
-    C: crate::backend::camera::CameraBackend + 'static,
-    S: crate::backend::servers::ServerBackend + 'static,
-> {
-    feed: CameraFeed<C::Camera>,
-    state: MainAppState<S::UploadHandle>,
+#[derive(Debug)]
+pub enum MainAppAction {
+    None,
+    Task(Task<MainAppMessage>),
+}
+
+/// State needed for the current session
+pub struct Session {
     captured_photos: Vec<RgbaImage>,
-    previews: Vec<iced::widget::image::Handle>,
-    pub new_page: Option<Box<(AppPage<C, S>, Task<PhotoBoothMessage<C, S>>)>>,
+    strips: Option<Vec<RgbaImage>>,
+    strip_handles: Option<Vec<iced::widget::image::Handle>>,
 }
 
-impl<
-        C: crate::backend::camera::CameraBackend + 'static,
-        S: crate::backend::servers::ServerBackend + 'static,
-    > MainApp<C, S>
-{
-    pub fn new(feed: CameraFeed<C::Camera>) -> (Self, Task<MainAppMessage<S>>) {
+impl Default for Session {
+    fn default() -> Self {
+        Self {
+            captured_photos: Vec::new(),
+            strips: None,
+            strip_handles: None,
+        }
+    }
+}
+
+pub struct MainApp {
+    feed: CameraFeed,
+    page: MainAppPage,
+    session: Session,
+
+    manager: crate::backend::manager::BackendManager,
+    config: &'static crate::config::Config,
+}
+
+impl MainApp {
+    pub fn new(
+        manager: crate::backend::manager::BackendManager,
+        config: &'static crate::config::Config,
+    ) -> (Self, Task<MainAppMessage>) {
+        let (feed, feed_task) = CameraFeed::new(manager.clone(), Default::default());
         (
             Self {
                 feed,
-                state: MainAppState::PaymentRequired(PaymentRequired::new()),
-                new_page: None,
-                captured_photos: Vec::with_capacity(PHOTO_COUNT),
-                previews: Vec::with_capacity(PHOTO_COUNT),
+                page: MainAppPage::Preview(Preview::new()),
+                session: Session::default(),
+                manager,
+                config,
             },
-            Task::none(),
+            feed_task.map(MainAppMessage::CameraFeed),
         )
     }
 
-    pub fn update(
-        &mut self,
-        message: MainAppMessage<S>,
-        server_backend: S,
-    ) -> Task<MainAppMessage<S>> {
+    pub fn update(&mut self, message: MainAppMessage) -> MainAppAction {
         self.feed.update_options(
             if matches!(
-                self.state,
-                MainAppState::CapturePhotosPrepare { .. }
-                    | MainAppState::CapturePhotos(_)
-                    | MainAppState::Preview(_)
+                self.page,
+                // MainAppPage::CapturePhotosPrepare { .. }
+                //     | MainAppPage::CapturePhotos(_)
+                    | MainAppPage::Preview(_)
             ) {
                 CameraFeedOptions {
                     blur: 1.0,
-                    aspect_ratio: Some(PHOTO_ASPECT_RATIO),
+                    aspect_ratio: Some(self.config.camera.preview_aspect_ratio),
                     mirror: true,
                     ..Default::default()
                 }
@@ -120,291 +127,254 @@ impl<
         );
 
         match message {
-            MainAppMessage::Camera(msg) => self.feed.update(msg).map(MainAppMessage::Camera),
-            MainAppMessage::CaptureStill => {
-                log::debug!("Capturing still image...");
-                let image = self
-                    .feed
-                    .capture_still_sync(CameraFeedOptions {
-                        aspect_ratio: Some(PHOTO_ASPECT_RATIO),
-                        mirror: true,
-                        ..Default::default()
-                    })
-                    .expect("failed to capture image");
-                log::debug!("Image captured successfully.");
-                self.captured_photos.push(image);
-                Task::none()
+            MainAppMessage::CameraFeed(msg) => {
+                MainAppAction::Task(self.feed.update(msg).map(MainAppMessage::CameraFeed))
             }
-            MainAppMessage::Tick => match &mut self.state {
-                MainAppState::CapturePhotosPrepare { ready_timeline } => {
-                    if ready_timeline.update().is_completed() {
-                        self.state = MainAppState::CapturePhotos(CapturePhotos::new());
-                    };
-                    Task::none()
-                }
-                MainAppState::CapturePhotos(_capture_photos) => {
-                    Task::done(MainAppMessage::CapturePhotos(CapturePhotosMessage::Tick))
-                }
-                MainAppState::RenderedPreview(_rendered_preview) => Task::done(
-                    MainAppMessage::RenderedPreview(RenderedPreviewMessage::Tick),
-                ),
-                MainAppState::Emailing(emailing) => {
-                    if let Some(effect) = emailing.update(EmailingMessage::Tick) {
-                        match effect {
-                            EmailingEffect::Complete => {
-                                self.state = MainAppState::PaymentRequired(PaymentRequired::new());
-                            }
-                        }
-                    }
-                    Task::none()
-                }
-                _ => Task::none(),
-            },
-            MainAppMessage::Uploaded(result) => {
-                log::debug!("Upload result received: {:?}", result);
-                match result {
-                    Ok(res) => {
-                        // Update email entry with upload data
-                        if let MainAppState::EmailEntry(ref mut email_entry) = self.state {
-                            // Store the actual upload handle for later use
-                            email_entry.set_upload_handle(res.clone());
-                            email_entry.set_qr_code_url(server_backend.get_link(res));
-                        }
-                        Task::none()
-                    }
-                    Err(err) => {
-                        self.state = MainAppState::PaymentRequired(PaymentRequired::with_error(
-                            format!("Failed to upload photos: {}", err),
-                        ));
-                        log::error!("Error uploading photos: {}", err);
-                        Task::none()
-                    }
-                }
-            }
-            MainAppMessage::KeyReleased(key) => {
-                log::debug!("Key released: {:?}", key);
-                match &mut self.state {
-                    MainAppState::PaymentRequired(_) => match key {
-                        KeyMessage::Up => Task::none(),
-                        KeyMessage::Down => Task::none(),
-                        KeyMessage::Space => {
-                            self.state = MainAppState::Preview(Preview::new());
-                            Task::none()
-                        }
-                        KeyMessage::Escape => iced::widget::text_input::focus("email_input"),
-                    },
-                    MainAppState::Preview(_) => {
-                        self.state = MainAppState::CapturePhotosPrepare {
-                            ready_timeline: animations::ready::animation().begin_animation(),
-                        };
-                        Task::none()
-                    }
-                    MainAppState::RenderedPreview(_) => Task::done(
-                        MainAppMessage::RenderedPreview(RenderedPreviewMessage::Skip),
-                    ),
-                    MainAppState::EmailEntry(_) => iced::widget::text_input::focus("email_input"),
-                    MainAppState::StudentIDEntry(_) => {
-                        iced::widget::text_input::focus("student_id_input")
-                    }
-                    _ => Task::none(),
-                }
-            }
-            MainAppMessage::OtherKeyPress => match self.state {
-                MainAppState::EmailEntry(_) => iced::widget::text_input::focus("email_input"),
-                MainAppState::StudentIDEntry(_) => {
-                    iced::widget::text_input::focus("student_id_input")
-                }
-                _ => Task::none(),
-            },
-            MainAppMessage::EmailEntry(msg) => match &mut self.state {
-                MainAppState::EmailEntry(email_entry) => {
-                    let effect = email_entry.update(msg);
+            // MainAppMessage::Tick => match &mut self.page {
+            //     MainAppPage::CapturePhotosPrepare { ready_timeline } => {
+            //         if ready_timeline.update().is_completed() {
+            //             self.page = MainAppPage::CapturePhotos(CapturePhotos::new());
+            //         };
+            //         Task::none()
+            //     }
+            //     MainAppPage::CapturePhotos(_capture_photos) => {
+            //         Task::done(MainAppMessage::CapturePhotos(CapturePhotosMessage::Tick))
+            //     }
+            //     MainAppPage::RenderedPreview(_rendered_preview) => Task::done(
+            //         MainAppMessage::RenderedPreview(RenderedPreviewMessage::Tick),
+            //     ),
+            //     MainAppPage::Emailing(emailing) => {
+            //         if let Some(effect) = emailing.update(EmailingMessage::Tick) {
+            //             match effect {
+            //                 EmailingEffect::Complete => {
+            //                     self.page = MainAppPage::PaymentRequired(PaymentRequired::new());
+            //                 }
+            //             }
+            //         }
+            //         Task::none()
+            //     }
+            //     _ => Task::none(),
+            // },
+            // MainAppMessage::UploadFinished(result) => {
+            //     log::debug!("Upload result received: {:?}", result);
+            //     match result {
+            //         Ok(res) => {
+            //             // Update email entry with upload data
+            //             if let MainAppPage::EmailEntry(ref mut email_entry) = self.page {
+            //                 // Store the actual upload handle for later use
+            //                 email_entry.set_upload_handle(res.clone());
+            //                 email_entry.set_qr_code_url(server_backend.get_link(res));
+            //             }
+            //             Task::none()
+            //         }
+            //         Err(err) => {
+            //             self.page = MainAppPage::PaymentRequired(PaymentRequired::with_error(
+            //                 format!("Failed to upload photos: {}", err),
+            //             ));
+            //             log::error!("Error uploading photos: {}", err);
+            //             Task::none()
+            //         }
+            //     }
+            // }
+            // MainAppMessage::KeyReleased(key) => {
+            //     log::debug!("Key released: {:?}", key);
+            //     match &mut self.page {
+            //         MainAppPage::PaymentRequired(_) => match key {
+            //             KeyMessage::Up => Task::none(),
+            //             KeyMessage::Down => Task::none(),
+            //             KeyMessage::Space => {
+            //                 self.page = MainAppPage::Preview(Preview::new());
+            //                 Task::none()
+            //             }
+            //             KeyMessage::Escape => iced::widget::text_input::focus("email_input"),
+            //         },
+            //         MainAppPage::Preview(_) => {
+            //             self.page = MainAppPage::CapturePhotosPrepare {
+            //                 ready_timeline: animations::ready::animation().begin_animation(),
+            //             };
+            //             Task::none()
+            //         }
+            //         MainAppPage::RenderedPreview(_) => Task::done(MainAppMessage::RenderedPreview(
+            //             RenderedPreviewMessage::Skip,
+            //         )),
+            //         MainAppPage::EmailEntry(_) => iced::widget::text_input::focus("email_input"),
+            //         MainAppPage::StudentIDEntry(_) => {
+            //             iced::widget::text_input::focus("student_id_input")
+            //         }
+            //         _ => Task::none(),
+            //     }
+            // }
+            // MainAppMessage::OtherKeyPress => match self.page {
+            //     MainAppPage::EmailEntry(_) => iced::widget::text_input::focus("email_input"),
+            //     MainAppPage::StudentIDEntry(_) => {
+            //         iced::widget::text_input::focus("student_id_input")
+            //     }
+            //     _ => Task::none(),
+            // },
+            // MainAppMessage::EmailEntry(msg) => match &mut self.page {
+            //     MainAppPage::EmailEntry(email_entry) => {
+            //         let effect = email_entry.update(msg);
 
-                    match effect {
-                        Some(EmailEntryEffect::Submit {
-                            emails,
-                            upload_handle,
-                        }) => {
-                            let emailing = Emailing::new();
-                            self.state = MainAppState::Emailing(emailing);
-                            log::trace!("Sending email with photos...");
-                            Task::perform(
-                                server_backend.send_email(
-                                    upload_handle,
-                                    emails,
-                                    None,
-                                    iced::theme::palette::Extended::generate(PALETTE),
-                                ),
-                                |result| MainAppMessage::Emailed(result.map_err(|x| x.to_string())),
-                            )
-                            // let student_id_entry = StudentIDEntry::new(
-                            //     email_entry.strip_handle.clone(),
-                            //     upload_handle,
-                            //     emails,
-                            // );
-                            // self.state = MainAppState::StudentIDEntry(student_id_entry);
-                            // iced::widget::text_input::focus("student_id_input")
+            //         match effect {
+            //             Some(EmailEntryEffect::Submit {
+            //                 emails,
+            //                 // upload_handle,
+            //             }) => {
+            //                 let emailing = Emailing::new();
+            //                 self.page = MainAppPage::Emailing(emailing);
+            //                 log::trace!("Sending email with photos...");
+            //                 Task::perform(
+            //                     server_backend.send_email(
+            //                         upload_handle,
+            //                         emails,
+            //                         None,
+            //                         iced::theme::palette::Extended::generate(PALETTE),
+            //                     ),
+            //                     |result| {
+            //                         MainAppMessage::EmailFinished(result.map_err(|x| x.to_string()))
+            //                     },
+            //                 )
+            //             }
+            //             None => Task::none(),
+            //         }
+            //     }
+            //     _ => Task::none(),
+            // },
+            MainAppMessage::Preview(message) => {
+                if let MainAppPage::Preview(preview) = &mut self.page {
+                    match preview.update(message) {
+                        preview::PreviewAction::Task(task) => {
+                            return MainAppAction::Task(task.map(MainAppMessage::Preview));
                         }
-                        None => Task::none(),
+                        preview::PreviewAction::None => MainAppAction::None,
                     }
+                } else {
+                    MainAppAction::None
                 }
-                _ => Task::none(),
-            },
-            MainAppMessage::StudentIDEntry(msg) => {
-                // To avoid borrowing issues, extract needed data first
-                let (upload_handle, emails, task) = match &mut self.state {
-                    MainAppState::StudentIDEntry(student_id_entry) => {
-                        let task = student_id_entry.update(msg);
-                        (
-                            student_id_entry.upload_handle.clone(),
-                            student_id_entry.emails.clone(),
-                            task,
-                        )
-                    }
-                    _ => return Task::none(),
-                };
+            } // MainAppMessage::CapturePhotos(msg) => match &mut self.page {
+              //     MainAppPage::CapturePhotos(capture_photos) => {
+              //         let task = capture_photos.update(msg, &mut self.captured_photos);
 
-                match task {
-                    Some(StudentIDEntryEffect::Submit { student_id }) => {
-                        let emailing = Emailing::new();
-                        self.state = MainAppState::Emailing(emailing);
-                        log::trace!("Sending email with photos...");
-                        Task::perform(
-                            server_backend.send_email(
-                                upload_handle,
-                                emails,
-                                student_id,
-                                iced::theme::palette::Extended::generate(PALETTE),
-                            ),
-                            |result| MainAppMessage::Emailed(result.map_err(|x| x.to_string())),
-                        )
-                    }
-                    None => Task::none(),
-                }
-            }
-            MainAppMessage::PaymentRequired(msg) => match &mut self.state {
-                MainAppState::PaymentRequired(payment_required) => {
-                    let task = payment_required.update(msg);
+              //         match task {
+              //             Some(CapturePhotosEffect::CaptureStill) => {
+              //                 Task::done(MainAppMessage::CaptureStill)
+              //             }
+              //             Some(CapturePhotosEffect::PhotosComplete { photos }) => {
+              //                 // Process captured photos
+              //                 self.previews.clear();
+              //                 for photo in &photos {
+              //                     self.previews.push(iced::widget::image::Handle::from_rgba(
+              //                         photo.width(),
+              //                         photo.height(),
+              //                         photo.as_raw().clone(),
+              //                     ));
+              //                 }
 
-                    match task {
-                        Some(PaymentRequiredEffect::StartSession) => {
-                            self.state = MainAppState::Preview(Preview::new());
-                            Task::none()
-                        }
-                        None => Task::none(),
-                    }
-                }
-                _ => Task::none(),
-            },
-            MainAppMessage::Preview(msg) => match &mut self.state {
-                MainAppState::Preview(preview) => {
-                    let _effect = preview.update(msg);
-                    Task::none()
-                }
-                _ => Task::none(),
-            },
-            MainAppMessage::CapturePhotos(msg) => match &mut self.state {
-                MainAppState::CapturePhotos(capture_photos) => {
-                    let task = capture_photos.update(msg, &mut self.captured_photos);
+              //                 let strip = render_take(photos.clone());
+              //                 let strip_handle = Handle::from_rgba(
+              //                     strip.width(),
+              //                     strip.height(),
+              //                     strip.as_raw().clone(),
+              //                 );
 
-                    match task {
-                        Some(CapturePhotosEffect::CaptureStill) => {
-                            Task::done(MainAppMessage::CaptureStill)
-                        }
-                        Some(CapturePhotosEffect::PhotosComplete { photos }) => {
-                            // Process captured photos
-                            self.previews.clear();
-                            for photo in &photos {
-                                self.previews.push(iced::widget::image::Handle::from_rgba(
-                                    photo.width(),
-                                    photo.height(),
-                                    photo.as_raw().clone(),
-                                ));
-                            }
+              //                 let rendered_preview = RenderedPreview::new(strip_handle);
+              //                 self.page = MainAppPage::RenderedPreview(rendered_preview);
 
-                            let strip = render_take(photos.clone());
-                            let strip_handle = Handle::from_rgba(
-                                strip.width(),
-                                strip.height(),
-                                strip.as_raw().clone(),
-                            );
+              //                 let future = server_backend.upload_photo(strip.clone(), photos);
+              //                 Task::perform(future, |result| {
+              //                     MainAppMessage::UploadFinished(result.map_err(|x| x.to_string()))
+              //                 })
+              //             }
+              //             None => Task::none(),
+              //         }
+              //     }
+              //     _ => Task::none(),
+              // },
+              // MainAppMessage::RenderedPreview(msg) => match &mut self.page {
+              //     MainAppPage::RenderedPreview(rendered_preview) => {
+              //         let task = rendered_preview.update(msg);
 
-                            let rendered_preview = RenderedPreview::new(strip_handle);
-                            self.state = MainAppState::RenderedPreview(rendered_preview);
+              //         match task {
+              //             Some(RenderedPreviewEffect::Complete) => {
+              //                 // let email_entry =
+              //                 //     EmailEntry::new(rendered_preview.strip_handle.clone());
+              //                 let email_entry = todo!();
+              //                 self.page = MainAppPage::EmailEntry(email_entry);
+              //                 iced::widget::text_input::focus("email_input")
+              //             }
+              //             None => Task::none(),
+              //         }
+              //     }
+              //     _ => Task::none(),
+              // },
+              // MainAppMessage::Emailing(msg) => match &mut self.page {
+              //     MainAppPage::Emailing(emailing) => {
+              //         let task = emailing.update(msg);
 
-                            let future = server_backend.upload_photo(strip.clone(), photos);
-                            Task::perform(future, |result| {
-                                MainAppMessage::Uploaded(result.map_err(|x| x.to_string()))
-                            })
-                        }
-                        None => Task::none(),
-                    }
-                }
-                _ => Task::none(),
-            },
-            MainAppMessage::RenderedPreview(msg) => match &mut self.state {
-                MainAppState::RenderedPreview(rendered_preview) => {
-                    let task = rendered_preview.update(msg);
-
-                    match task {
-                        Some(RenderedPreviewEffect::Complete) => {
-                            let email_entry =
-                                EmailEntry::new(rendered_preview.strip_handle.clone());
-                            self.state = MainAppState::EmailEntry(email_entry);
-                            iced::widget::text_input::focus("email_input")
-                        }
-                        None => Task::none(),
-                    }
-                }
-                _ => Task::none(),
-            },
-            MainAppMessage::Emailing(msg) => match &mut self.state {
-                MainAppState::Emailing(emailing) => {
-                    let task = emailing.update(msg);
-
-                    match task {
-                        Some(EmailingEffect::Complete) => {
-                            self.state = MainAppState::PaymentRequired(PaymentRequired::new());
-                            Task::none()
-                        }
-                        None => Task::none(),
-                    }
-                }
-                _ => Task::none(),
-            },
-            MainAppMessage::Emailed(result) => {
-                log::debug!("Email result received: {:?}", result);
-                match &mut self.state {
-                    MainAppState::Emailing(emailing) => match result {
-                        Ok(_) => {
-                            emailing.finish();
-                            Task::none()
-                        }
-                        Err(err) => {
-                            self.state =
-                                MainAppState::PaymentRequired(PaymentRequired::with_error(
-                                    format!("Failed to email photos: {}", err),
-                                ));
-                            log::error!("Error emailing photos: {}", err);
-                            Task::none()
-                        }
-                    },
-                    _ => Task::none(),
-                }
-            }
+              //         match task {
+              //             Some(EmailingEffect::Complete) => {
+              //                 self.page = MainAppPage::PaymentRequired(PaymentRequired::new());
+              //                 Task::none()
+              //             }
+              //             None => Task::none(),
+              //         }
+              //     }
+              //     _ => Task::none(),
+              // },
+              // MainAppMessage::EmailFinished(result) => {
+              //     log::debug!("Email result received: {:?}", result);
+              //     match &mut self.page {
+              //         MainAppPage::Emailing(emailing) => match result {
+              //             Ok(_) => {
+              //                 emailing.finish();
+              //                 Task::none()
+              //             }
+              //             Err(err) => {
+              //                 self.page = MainAppPage::PaymentRequired(PaymentRequired::with_error(
+              //                     format!("Failed to email photos: {}", err),
+              //                 ));
+              //                 log::error!("Error emailing photos: {}", err);
+              //                 Task::none()
+              //             }
+              //         },
+              //         _ => Task::none(),
+              //     }
+              // }
         }
     }
 
-    pub fn view<'a>(&'a self, _server_backend: &'a S) -> Element<'a, MainAppMessage<S>> {
+    pub fn subscription(&self) -> iced::Subscription<MainAppMessage> {
+        iced::Subscription::batch([
+            self.feed.subscription().map(MainAppMessage::CameraFeed),
+            match &self.page {
+                MainAppPage::Preview(preview) => {
+                    preview.subscription().map(MainAppMessage::Preview)
+                }
+                _ => iced::Subscription::none(),
+            },
+            // iced::subscription::events().map(|event| match event {
+            //     iced::Event::Keyboard(keyboard_event) => match keyboard_event {
+            //         iced::keyboard::Event::KeyReleased { key_code, .. } => {
+            //             MainAppMessage::KeyReleased(KeyMessage::from(key_code))
+            //         }
+            //         _ => MainAppMessage::OtherKeyPress,
+            //     },
+            //     _ => MainAppMessage::OtherKeyPress,
+            // }),
+        ])
+    }
+
+    pub fn view(&self) -> Element<MainAppMessage> {
         iced::widget::stack([
+            // Bottom layer: camera feed
             self.feed
                 .view()
                 .content_fit(
                     if matches!(
-                        self.state,
-                        MainAppState::CapturePhotosPrepare { .. }
-                            | MainAppState::CapturePhotos(_)
-                            | MainAppState::Preview(_)
+                        self.page,
+                        // MainAppPage::CapturePhotosPrepare { .. }
+                        //     | MainAppPage::CapturePhotos(_)
+                            | MainAppPage::Preview(_)
                     ) {
                         ContentFit::Contain
                     } else {
@@ -414,27 +384,21 @@ impl<
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .into(),
-            match &self.state {
-                MainAppState::PaymentRequired(payment_required) => {
-                    payment_required.view().map(MainAppMessage::PaymentRequired)
-                }
-                MainAppState::Preview(preview) => preview.view().map(MainAppMessage::Preview),
-                MainAppState::CapturePhotosPrepare { ready_timeline } => {
-                    animations::ready::view(ready_timeline.value()).into()
-                }
-                MainAppState::CapturePhotos(capture_photos) => {
-                    capture_photos.view().map(MainAppMessage::CapturePhotos)
-                }
-                MainAppState::RenderedPreview(rendered_preview) => {
-                    rendered_preview.view().map(MainAppMessage::RenderedPreview)
-                }
-                MainAppState::EmailEntry(email_entry) => {
-                    email_entry.view().map(MainAppMessage::EmailEntry).into()
-                }
-                MainAppState::StudentIDEntry(student_id_entry) => {
-                    student_id_entry.view().map(MainAppMessage::StudentIDEntry)
-                }
-                MainAppState::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
+            match &self.page {
+                MainAppPage::Preview(preview) => preview.view().map(MainAppMessage::Preview),
+                // MainAppPage::CapturePhotosPrepare { ready_timeline } => {
+                //     animations::ready::view(ready_timeline.value()).into()
+                // }
+                // MainAppPage::CapturePhotos(capture_photos) => {
+                //     capture_photos.view().map(MainAppMessage::CapturePhotos)
+                // }
+                // MainAppPage::RenderedPreview(rendered_preview) => {
+                //     rendered_preview.view().map(MainAppMessage::RenderedPreview)
+                // }
+                // MainAppPage::EmailEntry(email_entry) => {
+                //     email_entry.view().map(MainAppMessage::EmailEntry).into()
+                // }
+                // MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
             },
         ])
         .into()

@@ -1,8 +1,8 @@
 use iced::{
+    Alignment, Border, Color, Element, Length, Padding,
     widget::{
         button, column, container, horizontal_space, image, row, text, text_input, vertical_space,
     },
-    Alignment, Border, Color, Element, Length, Padding,
 };
 use regex::Regex;
 
@@ -20,12 +20,13 @@ const QR_CODE_SIDE_LENGTH: usize = QR_CODE_QUIET_ZONE * 2 + (5 * 4 + 17);
 const EMAIL_REGEX: &str = r"^([a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+)@([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)$";
 
 #[derive(Debug)]
-pub struct EmailEntry<UH: Clone> {
+pub struct EmailEntry {
     emails: Vec<String>,
     email_validation_triggered: bool,
-    upload_handle: Option<UH>,
     qr_code_data: Option<iced::widget::qr_code::Data>, // Store the QR code data directly
     pub strip_handle: iced::widget::image::Handle,
+
+    manager: crate::backend::manager::BackendManager,
 }
 
 #[derive(Debug, Clone)]
@@ -35,21 +36,21 @@ pub enum EmailEntryMessage {
 }
 
 #[derive(Debug, Clone)]
-pub enum EmailEntryEffect<UH> {
-    Submit {
-        emails: Vec<String>,
-        upload_handle: UH,
-    },
+pub enum EmailEntryEffect {
+    Submit { emails: Vec<String> },
 }
 
-impl<UH: Clone> EmailEntry<UH> {
-    pub fn new(strip_handle: iced::widget::image::Handle) -> Self {
+impl EmailEntry {
+    pub fn new(
+        strip_handle: iced::widget::image::Handle,
+        manager: crate::backend::manager::BackendManager,
+    ) -> Self {
         Self {
             emails: vec![String::new()],
             email_validation_triggered: false,
-            upload_handle: None,
             qr_code_data: None,
             strip_handle,
+            manager,
         }
     }
 
@@ -70,7 +71,7 @@ impl<UH: Clone> EmailEntry<UH> {
             .collect()
     }
 
-    pub fn update(&mut self, message: EmailEntryMessage) -> Option<EmailEntryEffect<UH>> {
+    pub fn update(&mut self, message: EmailEntryMessage) -> Option<EmailEntryEffect> {
         match message {
             EmailEntryMessage::EmailInput(input) => {
                 if let Some(first) = self.emails.get_mut(0) {
@@ -85,16 +86,13 @@ impl<UH: Clone> EmailEntry<UH> {
 
                 if current_email.is_empty() {
                     // Ignore the submission if we haven't finished uploading
-                    if self.upload_handle.is_none() {
+                    if self.manager.storage_manager.busy() {
                         return None;
                     }
 
                     // Submit with current emails (excluding empty ones)
                     let emails = self.get_emails();
-                    return Some(EmailEntryEffect::Submit {
-                        emails,
-                        upload_handle: self.upload_handle.clone().unwrap(),
-                    });
+                    return Some(EmailEntryEffect::Submit { emails });
                 }
 
                 // Validate email
@@ -184,7 +182,7 @@ impl<UH: Clone> EmailEntry<UH> {
                                     .padding(8)
                                     .into()
                                 } else {
-                                    iced::widget::Space::new(0, 0).into()
+                                    iced::widget::Space::new().into()
                                 },
                                 vertical_space().height(6.0).into(),
                                 container(
@@ -302,12 +300,8 @@ impl<UH: Clone> EmailEntry<UH> {
                 )
                 .into()
             } else {
-                iced::widget::Space::new(0, 0).into()
+                iced::widget::Space::new().into()
             },
         ]).into()
-    }
-
-    pub fn set_upload_handle(&mut self, handle: UH) {
-        self.upload_handle = Some(handle);
     }
 }

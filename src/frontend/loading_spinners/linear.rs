@@ -3,17 +3,15 @@ use iced::advanced::layout;
 use iced::advanced::renderer::{self, Quad};
 use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::{self, Clipboard, Layout, Shell, Widget};
-use iced::event;
 use iced::mouse;
 use iced::time::Instant;
-use iced::window::{self, RedrawRequest};
+use iced::window;
 use iced::{Background, Color, Element, Event, Length, Rectangle, Size};
 
 use super::easing::{self, Easing};
 
 use std::time::Duration;
 
-#[allow(missing_debug_implementations)]
 pub struct Linear<'a, Theme>
 where
     Theme: StyleSheet,
@@ -71,7 +69,7 @@ where
     }
 }
 
-impl<'a, Theme> Default for Linear<'a, Theme>
+impl<Theme> Default for Linear<'_, Theme>
 where
     Theme: StyleSheet,
 {
@@ -111,9 +109,7 @@ impl State {
 
     fn start(&self) -> Instant {
         match self {
-            Self::Expanding { start, .. } | Self::Contracting { start, .. } => {
-                *start
-            }
+            Self::Expanding { start, .. } | Self::Contracting { start, .. } => *start,
         }
     }
 
@@ -126,11 +122,7 @@ impl State {
         }
     }
 
-    fn with_elapsed(
-        &self,
-        cycle_duration: Duration,
-        elapsed: Duration,
-    ) -> Self {
+    fn with_elapsed(&self, cycle_duration: Duration, elapsed: Duration) -> Self {
         let progress = elapsed.as_secs_f32() / cycle_duration.as_secs_f32();
         match self {
             Self::Expanding { start, .. } => Self::Expanding {
@@ -145,8 +137,7 @@ impl State {
     }
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Linear<'a, Theme>
+impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Linear<'a, Theme>
 where
     Message: Clone + 'a,
     Theme: StyleSheet + 'a,
@@ -168,7 +159,7 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         _tree: &mut Tree,
         _renderer: &Renderer,
         limits: &layout::Limits,
@@ -176,26 +167,24 @@ where
         layout::atomic(limits, self.width, self.height)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: Event,
+        event: &Event,
         _layout: Layout<'_>,
         _cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let state = tree.state.downcast_mut::<State>();
 
         if let Event::Window(window::Event::RedrawRequested(now)) = event {
-            *state = state.timed_transition(self.cycle_duration, now);
+            *state = state.timed_transition(self.cycle_duration, *now);
 
-            shell.request_redraw(RedrawRequest::NextFrame);
+            shell.request_redraw();
         }
-
-        event::Status::Ignored
     }
 
     fn draw(
@@ -242,11 +231,9 @@ where
             State::Contracting { progress, .. } => renderer.fill_quad(
                 Quad {
                     bounds: Rectangle {
-                        x: bounds.x
-                            + self.easing.y_at_x(*progress) * bounds.width,
+                        x: bounds.x + self.easing.y_at_x(*progress) * bounds.width,
                         y: bounds.y,
-                        width: (1.0 - self.easing.y_at_x(*progress))
-                            * bounds.width,
+                        width: (1.0 - self.easing.y_at_x(*progress)) * bounds.width,
                         height: bounds.height,
                     },
                     ..renderer::Quad::default()
@@ -257,8 +244,7 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer> From<Linear<'a, Theme>>
-    for Element<'a, Message, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> From<Linear<'a, Theme>> for Element<'a, Message, Theme, Renderer>
 where
     Message: Clone + 'a,
     Theme: StyleSheet + 'a,

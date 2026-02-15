@@ -1,11 +1,14 @@
 use anim::Animation;
 use iced::{
-    widget::{stack, text},
     Element,
+    widget::{stack, text},
 };
 use image::RgbaImage;
 
-use super::{animations, status_overlay, PHOTO_COUNT};
+use super::{animations, status_overlay};
+
+/// hardcoded for now, but should be based on config
+const PHOTO_COUNT: usize = 4;
 
 #[derive(Debug)]
 pub struct CapturePhotos {

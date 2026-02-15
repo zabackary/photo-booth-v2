@@ -15,7 +15,18 @@ pub enum CameraMessage {
 pub struct CameraFeed {
     current_frame: Arc<Mutex<Option<Handle>>>,
     options: Arc<Mutex<CameraFeedOptions>>,
-    manager: crate::backend::manager::camera::CameraManager,
+    manager: crate::backend::manager::BackendManager,
+    hashable_manager: HashableManager,
+}
+
+/// A wrapper around the manager that makes it hashable
+#[derive(Debug, Clone)]
+struct HashableManager(crate::backend::manager::BackendManager);
+
+impl std::hash::Hash for HashableManager {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_u64(0); // just a placeholder, we don't actually care about the hash value
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -43,12 +54,13 @@ impl CameraFeed {
     /// The caller is responsible for ensuring `update` is called by the
     /// manager's rx for camera frames.
     pub fn new(
-        manager: crate::backend::manager::camera::CameraManager,
+        manager: crate::backend::manager::BackendManager,
         options: CameraFeedOptions,
     ) -> (Self, Task<CameraMessage>) {
         (
             CameraFeed {
-                manager: manager.camera_manager.clone(),
+                hashable_manager: HashableManager(manager.clone()),
+                manager,
                 current_frame: Arc::new(Mutex::new(None)),
                 options: Arc::new(Mutex::new(options)),
             },
@@ -66,7 +78,7 @@ impl CameraFeed {
 
     /// Get the image handle of the current frame.
     pub fn handle(&self) -> Handle {
-        if let Some(frame) = self.manager.take_frame_preview() {
+        if let Some(frame) = self.manager.camera_manager.take_frame_preview() {
             let frame = image_postprocessing(frame, self.options());
             let handle = Handle::from_rgba(frame.width(), frame.height(), frame.into_raw());
             *self.current_frame.lock().expect("failed to lock frame") = Some(handle.clone());
@@ -85,7 +97,21 @@ impl CameraFeed {
     }
 
     pub fn update(&mut self, _message: CameraMessage) -> Task<CameraMessage> {
+        // `update` implicitly rerenders in iced. this might change later, though.
         Task::none()
+    }
+
+    pub fn subscription(&self) -> iced::Subscription<CameraMessage> {
+        iced::Subscription::run_with(self.hashable_manager.clone(), |manager| {
+            let rx = manager
+                .0
+                .take_camera_frame_rx()
+                .expect("could not get camera frame stream");
+            futures::stream::unfold(rx, |mut rx| async {
+                rx.recv().await.map(|item| (item, rx))
+            })
+        })
+        .map(|_| CameraMessage::FrameReceived)
     }
 }
 

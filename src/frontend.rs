@@ -4,10 +4,8 @@ pub mod main_app;
 pub mod setup;
 pub mod title_overlay;
 
-use std::time::Duration;
+use std::time::Instant;
 
-use super::backend::manager::BackendManager;
-use iced::{Font, Task, keyboard::Key, theme::Palette};
 use main_app::{MainApp, MainAppMessage};
 use setup::{Setup, SetupMessage};
 
@@ -18,19 +16,14 @@ enum AppPage {
 
 pub struct PhotoBoothApplication {
     page: AppPage,
-    manager: BackendManager,
+    config: &'static crate::config::Config,
+    now: Instant,
 }
 
 #[derive(Debug, Clone)]
 pub enum PhotoBoothMessage {
     Setup(SetupMessage),
     MainApp(MainAppMessage),
-    Tick,
-    SpaceReleased,
-    EscapeReleased,
-    UpReleased,
-    DownReleased,
-    OtherKeyRelease,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -42,108 +35,65 @@ enum KeyMessage {
 }
 
 impl PhotoBoothApplication {
-    pub fn new(manager: BackendManager) -> Self {
-        Self {
-            page: AppPage::Setup(Setup::new()),
-            manager,
-        }
+    pub fn new(config: &'static crate::config::Config) -> (Self, iced::Task<PhotoBoothMessage>) {
+        let (setup_page, setup_task) = Setup::new(config);
+        (
+            PhotoBoothApplication {
+                page: AppPage::Setup(setup_page),
+                config,
+                now: Instant::now(),
+            },
+            setup_task.map(PhotoBoothMessage::Setup),
+        )
     }
 
-    pub fn update(&mut self, message: PhotoBoothMessage) -> Task<PhotoBoothMessage> {
+    pub fn update(
+        &mut self,
+        message: PhotoBoothMessage,
+        now: Instant,
+    ) -> iced::Task<PhotoBoothMessage> {
+        self.now = now;
+
         match message {
-            PhotoBoothMessage::Setup(msg) => match &mut self.page {
-                AppPage::Setup(page) => {
-                    let update_task = page.update(msg).map(PhotoBoothMessage::Setup);
-                    if let Some(new_page) = page.new_page.take() {
-                        let (new_page, new_task) = *new_page;
-                        self.page = new_page;
-                        update_task.chain(new_task)
-                    } else {
-                        update_task
+            PhotoBoothMessage::Setup(message) => {
+                if let AppPage::Setup(page) = &mut self.page {
+                    match page.update(message) {
+                        setup::SetupAction::None => iced::Task::none(),
+                        setup::SetupAction::Task(task) => task.map(PhotoBoothMessage::Setup),
+                        setup::SetupAction::StartMainApp { manager } => {
+                            let (main_app_page, main_app_task) = MainApp::new(manager, self.config);
+                            self.page = AppPage::MainApp(main_app_page);
+                            main_app_task.map(PhotoBoothMessage::MainApp)
+                        }
                     }
+                } else {
+                    iced::Task::none()
                 }
-                _ => Task::none(),
-            },
-            PhotoBoothMessage::MainApp(msg) => match &mut self.page {
-                AppPage::MainApp(page) => {
-                    let update_task = page
-                        .update(msg, self.server_backend.clone())
-                        .map(PhotoBoothMessage::MainApp);
-                    if let Some(new_page) = page.new_page.take() {
-                        let (new_page, new_task) = *new_page;
-                        self.page = new_page;
-                        update_task.chain(new_task)
-                    } else {
-                        update_task
+            }
+            PhotoBoothMessage::MainApp(msg) => {
+                if let AppPage::MainApp(page) = &mut self.page {
+                    match page.update(msg) {
+                        main_app::MainAppAction::None => iced::Task::none(),
+                        main_app::MainAppAction::Task(task) => task.map(PhotoBoothMessage::MainApp),
                     }
+                } else {
+                    iced::Task::none()
                 }
-                _ => Task::none(),
-            },
-            PhotoBoothMessage::Tick => match &mut self.page {
-                AppPage::MainApp(page) => page
-                    .update(MainAppMessage::Tick, self.server_backend.clone())
-                    .map(PhotoBoothMessage::MainApp),
-                _ => Task::none(),
-            },
-            PhotoBoothMessage::SpaceReleased
-            | PhotoBoothMessage::DownReleased
-            | PhotoBoothMessage::UpReleased
-            | PhotoBoothMessage::EscapeReleased => match &mut self.page {
-                AppPage::MainApp(page) => page
-                    .update(
-                        MainAppMessage::KeyReleased(match message {
-                            PhotoBoothMessage::SpaceReleased => KeyMessage::Space,
-                            PhotoBoothMessage::DownReleased => KeyMessage::Down,
-                            PhotoBoothMessage::UpReleased => KeyMessage::Up,
-                            PhotoBoothMessage::EscapeReleased => KeyMessage::Escape,
-                            _ => unreachable!(),
-                        }),
-                        self.server_backend.clone(),
-                    )
-                    .map(PhotoBoothMessage::MainApp),
-                _ => Task::none(),
-            },
-            PhotoBoothMessage::OtherKeyRelease => match &mut self.page {
-                AppPage::MainApp(page) => page
-                    .update(MainAppMessage::OtherKeyPress, self.server_backend.clone())
-                    .map(PhotoBoothMessage::MainApp),
-                _ => Task::none(),
-            },
+            }
         }
     }
 
     pub fn view(&self) -> iced::Element<PhotoBoothMessage> {
         match &self.page {
-            AppPage::MainApp(page) => page
-                .view(&self.server_backend)
-                .map(PhotoBoothMessage::MainApp),
+            AppPage::MainApp(page) => page.view().map(PhotoBoothMessage::MainApp),
             AppPage::Setup(page) => page.view().map(PhotoBoothMessage::Setup),
         }
     }
 
     pub fn subscription(&self) -> iced::Subscription<PhotoBoothMessage> {
-        const FPS: f32 = 30.0;
-        iced::Subscription::batch([
-            iced::time::every(Duration::from_secs_f32(1.0 / FPS))
-                .map(|_tick| PhotoBoothMessage::Tick),
-            iced::keyboard::on_key_press(|key, _modifiers| match key {
-                Key::Named(iced::keyboard::key::Named::Space)
-                | Key::Named(iced::keyboard::key::Named::Enter) => {
-                    Some(PhotoBoothMessage::SpaceReleased)
-                }
-                Key::Named(iced::keyboard::key::Named::Escape) => {
-                    Some(PhotoBoothMessage::EscapeReleased)
-                }
-                Key::Named(iced::keyboard::key::Named::PageUp)
-                | Key::Named(iced::keyboard::key::Named::ArrowUp) => {
-                    Some(PhotoBoothMessage::UpReleased)
-                }
-                Key::Named(iced::keyboard::key::Named::PageDown)
-                | Key::Named(iced::keyboard::key::Named::ArrowDown) => {
-                    Some(PhotoBoothMessage::DownReleased)
-                }
-                _ => Some(PhotoBoothMessage::OtherKeyRelease),
-            }),
-        ])
+        iced::Subscription::batch([match &self.page {
+            AppPage::MainApp(page) => page.subscription().map(PhotoBoothMessage::MainApp),
+            AppPage::Setup(page) => page.subscription().map(PhotoBoothMessage::Setup),
+        }])
     }
 }

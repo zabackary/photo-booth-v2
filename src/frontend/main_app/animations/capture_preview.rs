@@ -1,90 +1,90 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use anim::{easing, Animatable};
 use iced::{
-    widget::{column, container, image, image::Handle, responsive, vertical_space, Container},
-    Color, Length, Rotation,
+    Animation, Color, Length, Rotation,
+    widget::{Container, column, container, image, image::Handle, responsive, space},
 };
-
-use crate::frontend::main_app::PHOTO_ASPECT_RATIO;
 
 use super::LENGTH_DIVISOR;
 
-pub const ANIMATION_LENGTH: u64 = 3000 / LENGTH_DIVISOR;
+pub const ANIMATION_LENGTH: Duration = Duration::from_millis(3000 / LENGTH_DIVISOR);
 
-#[derive(Debug, Clone, Copy, Animatable)]
-pub struct AnimationState {
-    opacity: f32,
-    offset_scale: f32,
-    width_scale: f32,
-    rotation_radians: f32,
-    background_opacity: f32,
+#[derive(Debug, Clone)]
+pub struct CapturePreviewAnimation {
+    progress: Animation<f32>,
+    photo_aspect_ratio: f32,
 }
 
-pub fn animation() -> impl anim::Animation<Item = AnimationState> {
-    anim::builder::key_frames([
-        anim::KeyFrame::new(AnimationState {
-            opacity: 0.0,
-            offset_scale: 1.0,
-            width_scale: 0.4,
-            rotation_radians: 0.0,
-            background_opacity: 0.0,
-        })
-        .by_percent(0.0),
-        anim::KeyFrame::new(AnimationState {
-            opacity: 1.0,
-            offset_scale: 0.0,
-            width_scale: 1.0,
-            rotation_radians: 0.0,
-            background_opacity: 0.9,
-        })
-        .easing(easing::cubic_ease().mode(easing::EasingMode::Out))
-        .by_percent(0.2),
-        anim::KeyFrame::new(AnimationState {
-            opacity: 1.0,
-            offset_scale: 0.0,
-            width_scale: 1.0,
-            rotation_radians: 0.0,
-            background_opacity: 0.9,
-        })
-        .by_percent(0.8),
-        anim::KeyFrame::new(AnimationState {
-            opacity: 0.8,
-            offset_scale: 0.0,
-            width_scale: 0.0,
-            rotation_radians: 1.0,
-            background_opacity: 0.0,
-        })
-        .easing(easing::cubic_ease().mode(easing::EasingMode::In))
-        .by_duration(Duration::from_millis(ANIMATION_LENGTH)),
-    ])
-}
+impl CapturePreviewAnimation {
+    pub fn new(photo_aspect_ratio: f32) -> Self {
+        let progress = Animation::new(0.0)
+            .duration(ANIMATION_LENGTH)
+            .easing(iced::animation::Easing::EaseOut)
+            .go(1.0, Instant::now());
 
-pub fn view<'a, Message: 'static>(
-    handle: &'a Handle,
-    animation_state: AnimationState,
-) -> Container<'a, Message> {
-    container(responsive(move |size| {
-        let image_width = animation_state.width_scale * size.width * 0.8;
-        let image_height = image_width / PHOTO_ASPECT_RATIO;
+        Self {
+            progress,
+            photo_aspect_ratio,
+        }
+    }
 
-        let remaining_vertical_space = size.height - image_height;
+    pub fn finished(&self) -> bool {
+        !self.progress.is_animating(Instant::now())
+    }
 
-        container(column([
-            vertical_space()
-                .height(remaining_vertical_space * animation_state.offset_scale)
-                .into(),
-            image(handle)
-                .opacity(animation_state.opacity)
-                .width(image_width)
-                .height(image_height)
-                .rotation(Rotation::Floating(animation_state.rotation_radians.into()))
-                .into(),
-        ]))
-        .style(move |_| {
-            container::background(Color::BLACK.scale_alpha(animation_state.background_opacity))
-        })
-        .center(Length::Fill)
-        .into()
-    }))
+    pub fn view<'a, Message: 'a>(&'a self, handle: &'a Handle) -> Container<'a, Message> {
+        container(responsive(move |size| {
+            let t = self.progress.value().clamp(0.0, 1.0);
+
+            // keyframe interpolation helper
+            let lerp = |a: f32, b: f32, t: f32| a + (b - a) * t;
+
+            // original keyframes at 0.0, 0.2, 0.8, 1.0
+            let (opacity, offset_scale, width_scale, rotation_radians, background_opacity) =
+                if t < 0.2 {
+                    let tt = t / 0.2;
+                    (
+                        lerp(0.0, 1.0, tt),
+                        lerp(1.0, 0.0, tt),
+                        lerp(0.4, 1.0, tt),
+                        lerp(0.0, 0.0, tt),
+                        lerp(0.0, 0.9, tt),
+                    )
+                } else if t < 0.8 {
+                    (1.0, 0.0, 1.0, 0.0, 0.9)
+                } else {
+                    let tt = (t - 0.8) / 0.2;
+                    (
+                        lerp(1.0, 0.8, tt),
+                        lerp(0.0, 0.0, tt),
+                        lerp(1.0, 0.0, tt),
+                        lerp(0.0, 1.0, tt),
+                        lerp(0.9, 0.0, tt),
+                    )
+                };
+
+            let image_width = width_scale * size.width * 0.8;
+            let image_height = image_width / self.photo_aspect_ratio;
+
+            let remaining_vertical_space = size.height - image_height;
+
+            container(column([
+                space()
+                    .height(remaining_vertical_space * offset_scale)
+                    .into(),
+                image(handle)
+                    .opacity(opacity)
+                    .width(image_width)
+                    .height(image_height)
+                    .rotation(Rotation::Floating(rotation_radians.into()))
+                    .into(),
+            ]))
+            .style(move |_| container::Style {
+                background: Some(Color::BLACK.scale_alpha(background_opacity).into()),
+                ..Default::default()
+            })
+            .center(Length::Fill)
+            .into()
+        }))
+    }
 }

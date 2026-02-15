@@ -3,53 +3,69 @@ use iced::{
     widget::{button, column, container, text},
 };
 
-use crate::frontend::{AppPage, PhotoBoothMessage};
-
-use super::{camera_feed::CameraFeed, main_app::MainApp};
-
+/// An internal message for the setup page.
 #[derive(Debug, Clone)]
 pub enum SetupMessage {
     StartPressed,
+    BackendInitialized(Result<crate::backend::manager::BackendManager, String>),
+}
+
+/// An action performed by an update to [`Setup`].
+#[derive(Debug)]
+pub enum SetupAction {
+    None,
+    Task(Task<SetupMessage>),
+    StartMainApp {
+        manager: crate::backend::manager::BackendManager,
+    },
 }
 
 pub struct Setup {
-    pub new_page: Option<Box<(AppPage, Task<PhotoBoothMessage>)>>,
-
-    manager: crate::backend::manager::BackendManager,
+    starting: bool,
+    config: &'static crate::config::Config,
 }
 
 impl Setup {
-    pub fn new(manager: crate::backend::manager::BackendManager) -> Self {
-        Self {
-            new_page: None,
-            manager,
-        }
+    pub fn new(config: &'static crate::config::Config) -> (Self, Task<SetupMessage>) {
+        (
+            Setup {
+                starting: false,
+                config,
+            },
+            Task::none(),
+        )
     }
 
-    pub fn update(&mut self, message: SetupMessage) -> Task<SetupMessage> {
+    pub fn update(&mut self, message: SetupMessage) -> SetupAction {
         match message {
             // SetupMessage::CameraSelected(new) => {
             //     self.camera_option = Some(new);
             //     Task::none()
             // }
-            SetupMessage::StartPressed => {
-                let (feed, task) =
-                    CameraFeed::new(self.manager.camera_manager.clone(), Default::default());
-                let (app, app_task) = MainApp::new(feed);
-                self.new_page = Some(Box::new((
-                    AppPage::MainApp(app),
-                    Task::batch([
-                        // task.map(MainAppMessage::Camera)
-                        //     .map(PhotoBoothMessage::MainApp),
-                        app_task.map(PhotoBoothMessage::MainApp),
-                    ]),
-                )));
-                iced::window::get_latest().then(|id| {
-                    iced::Task::batch([
-                        iced::window::change_mode(id.unwrap(), iced::window::Mode::Fullscreen),
-                        iced::window::toggle_decorations(id.unwrap()),
-                    ])
-                })
+            SetupMessage::StartPressed => SetupAction::Task(
+                iced::window::oldest()
+                    .then(|id| {
+                        iced::Task::batch([
+                            iced::window::set_mode(id.unwrap(), iced::window::Mode::Fullscreen),
+                            iced::window::toggle_decorations(id.unwrap()),
+                        ])
+                    })
+                    .then(|_: ()| {
+                        Task::perform(
+                            crate::backend::manager::BackendManager::from_config(self.config),
+                            |result| {
+                                SetupMessage::BackendInitialized(result.map_err(|err| {
+                                    log::error!("Failed to initialize backends: {:?}", err);
+                                    err.to_string()
+                                }))
+                            },
+                        )
+                    }),
+            ),
+            SetupMessage::BackendInitialized(Ok(manager)) => SetupAction::StartMainApp { manager },
+            SetupMessage::BackendInitialized(Err(err)) => {
+                log::error!("Failed to initialize backends: {}", err);
+                SetupAction::None
             }
         }
     }
@@ -66,11 +82,7 @@ impl Setup {
                     // )
                     // .into(),
                     button("Start")
-                        .on_press_maybe(
-                            self.camera_option
-                                .is_some()
-                                .then_some(SetupMessage::StartPressed),
-                        )
+                        .on_press_maybe(Some(SetupMessage::StartPressed))
                         .into(),
                 ])
                 .align_x(Alignment::Center)
@@ -82,5 +94,9 @@ impl Setup {
         .center_x(Length::Fill)
         .center_y(Length::Fill)
         .into()
+    }
+
+    pub fn subscription(&self) -> iced::Subscription<SetupMessage> {
+        iced::Subscription::none()
     }
 }

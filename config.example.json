@@ -1,0 +1,36 @@
+{
+  "camera": {
+    "type": "nokhwa",
+    "previewAspectRatio": 1.5
+  },
+  "printer": {
+    "type": "mock",
+    "autoFormat": true,
+    "horizontalResolution": 1179,
+    "verticalResolution": 1746,
+    "scale": 1.0
+  },
+  "email": {
+    "type": "mock"
+  },
+  "storage": {
+    "type": "localFilesystem",
+    "path": "./photos"
+  },
+  "renderer": {
+    "type": "simple",
+    "templates": []
+  },
+  "photosPerStrip": 4,
+  "theme": {
+    "background": "#ffffff",
+    "text": "#000000",
+    "primary": "#0066cc",
+    "success": "#00cc00",
+    "danger": "#cc0000",
+    "warning": "#ffaa00"
+  },
+  "eventName": "My Photo Booth Event",
+  "description": "Welcome to our photo booth!",
+  "contactEmail": "contact@example.com"
+}

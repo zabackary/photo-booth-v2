@@ -1,85 +1,89 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use anim::{easing, Animatable};
 use iced::{
-    widget::{column, container, text, vertical_space, Container},
-    Border, Length,
+    Animation, Border, Length,
+    widget::{Container, column, container, space, text},
 };
 
 use super::LENGTH_DIVISOR;
 
-pub const ANIMATION_LENGTH: u64 = 3000 / LENGTH_DIVISOR;
-
-#[derive(Debug, Clone, Copy, Animatable)]
-pub struct AnimationState {
-    opacity: f32,
-    text_size: f32,
-    offset: f32,
-}
+pub const ANIMATION_LENGTH: Duration = Duration::from_millis(3000 / LENGTH_DIVISOR);
 
 const TEXT_SIZE: f32 = 60.0;
 
-pub fn animation() -> impl anim::Animation<Item = AnimationState> {
-    anim::builder::key_frames([
-        anim::KeyFrame::new(AnimationState {
-            opacity: 0.0,
-            text_size: TEXT_SIZE * 0.8,
-            offset: 200.0,
-        })
-        .by_percent(0.0),
-        anim::KeyFrame::new(AnimationState {
-            opacity: 1.0,
-            text_size: TEXT_SIZE,
-            offset: 0.0,
-        })
-        .easing(easing::cubic_ease().mode(easing::EasingMode::Out))
-        .by_percent(0.4),
-        anim::KeyFrame::new(AnimationState {
-            opacity: 1.0,
-            text_size: TEXT_SIZE,
-            offset: 0.0,
-        })
-        .by_percent(0.8),
-        anim::KeyFrame::new(AnimationState {
-            opacity: 0.0,
-            text_size: TEXT_SIZE * 0.8,
-            offset: 200.0,
-        })
-        .easing(easing::cubic_ease().mode(easing::EasingMode::In))
-        .by_duration(Duration::from_millis(ANIMATION_LENGTH)),
-    ])
+#[derive(Debug, Clone)]
+pub struct ReadyAnimation {
+    progress: Animation<f32>,
 }
 
-pub fn view<Message: 'static>(animation_state: AnimationState) -> Container<'static, Message> {
-    container(column([
-        vertical_space().height(animation_state.offset).into(),
-        container(text(format!("Ready?")).size(animation_state.text_size))
-            .style(move |theme: &iced::Theme| container::Style {
-                text_color: Some(
-                    theme
-                        .extended_palette()
-                        .primary
-                        .weak
-                        .text
-                        .scale_alpha(animation_state.opacity),
-                ),
-                background: Some(
-                    theme
-                        .extended_palette()
-                        .primary
-                        .weak
-                        .color
-                        .scale_alpha(animation_state.opacity)
-                        .into(),
-                ),
-                border: Border {
-                    radius: 9999.0.into(),
-                    ..Default::default()
-                },
-                shadow: Default::default(),
-            })
-            .padding(24)
-            .into(),
-    ]))
-    .center(Length::Fill)
+impl ReadyAnimation {
+    pub fn new() -> Self {
+        let progress = Animation::new(0.0)
+            .duration(ANIMATION_LENGTH)
+            .easing(iced::animation::Easing::EaseOut)
+            .go(1.0, Instant::now());
+
+        Self { progress }
+    }
+
+    pub fn finished(&self) -> bool {
+        !self.progress.is_animating(Instant::now())
+    }
+
+    pub fn view<Message: 'static>(&self) -> Container<'static, Message> {
+        let t = self.progress.value().clamp(0.0, 1.0);
+
+        let lerp = |a: f32, b: f32, t: f32| a + (b - a) * t;
+
+        let (opacity, text_size, offset) = if t < 0.4 {
+            let tt = t / 0.4;
+            (
+                lerp(0.0, 1.0, tt),
+                lerp(TEXT_SIZE * 0.8, TEXT_SIZE, tt),
+                lerp(200.0, 0.0, tt),
+            )
+        } else if t < 0.8 {
+            (1.0, TEXT_SIZE, 0.0)
+        } else {
+            let tt = (t - 0.8) / 0.2;
+            (
+                lerp(1.0, 0.0, tt),
+                lerp(TEXT_SIZE, TEXT_SIZE * 0.8, tt),
+                lerp(0.0, 200.0, tt),
+            )
+        };
+
+        container(column([
+            space().height(offset).into(),
+            container(text("Ready?").size(text_size))
+                .style(move |theme: &iced::Theme| container::Style {
+                    text_color: Some(
+                        theme
+                            .extended_palette()
+                            .primary
+                            .weak
+                            .text
+                            .scale_alpha(opacity),
+                    ),
+                    background: Some(
+                        theme
+                            .extended_palette()
+                            .primary
+                            .weak
+                            .color
+                            .scale_alpha(opacity)
+                            .into(),
+                    ),
+                    border: Border {
+                        radius: 9999.0.into(),
+                        ..Default::default()
+                    },
+                    shadow: Default::default(),
+                    snap: true,
+                })
+                .padding(24)
+                .into(),
+        ]))
+        .center(Length::Fill)
+    }
 }

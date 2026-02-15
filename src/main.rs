@@ -19,33 +19,30 @@ struct Args {
     config: String,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     // Set up logging
     env_logger::init();
 
     // Parse the config file
     log::info!("Parsing config");
     let args = Args::parse();
-    let config_str = tokio::fs::read_to_string(args.config)
-        .await
-        .with_context(|| format!("failed to read config file at path: {}", args.config))?;
+    let config_str = std::fs::read_to_string(&args.config)
+        .with_context(|| format!("failed to read config file at path: {}", &args.config))?;
     let config: config::Config =
         serde_json::from_str(&config_str).context("failed to parse config")?;
+    let config: &'static config::Config = Box::leak(Box::new(config)); // leak the config, since it is used for the entire duration of the program
 
-    // Start the backend
-    log::info!("Starting backend");
-    let manager = backend::manager::BackendManager::from_config(&config)
-        .await
-        .context("failed to start backend")?;
+    let palette: iced::theme::Palette = config.theme.into();
 
     // Start the frontend
     log::info!("Starting application");
-    iced::application(
-        "Photo Booth",
+    iced::application::timed(
+        move || PhotoBoothApplication::new(config),
         PhotoBoothApplication::update,
+        PhotoBoothApplication::subscription,
         PhotoBoothApplication::view,
     )
+    .title("photo-booth-v2")
     .font(include_bytes!(
         "../assets/fonts/Noto_Color_Emoji/NotoColorEmoji-Regular.ttf"
     ))
@@ -53,10 +50,9 @@ async fn main() -> anyhow::Result<()> {
         "../assets/fonts/Montserrat/Montserrat-Regular.ttf"
     ))
     .default_font(iced::Font::with_name("Montserrat"))
-    .theme(|_| iced::Theme::custom("Custom palette".to_owned(), config.theme.into()))
-    .subscription(PhotoBoothApplication::subscription)
-    .run_with(|| (PhotoBoothApplication::new(manager), iced::Task::none()))
-    .context("failed to run application");
+    .theme(iced::Theme::custom("Custom palette".to_owned(), palette))
+    .run()
+    .context("application exited with an error")?;
 
     log::info!("Application exited successfully");
     Ok(())
