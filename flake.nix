@@ -29,6 +29,7 @@
           linuxHeaders
           glibc.dev
           libgphoto2
+          mold-wrapped
         ];
         buildInputs = with pkgs; [
           openssl
