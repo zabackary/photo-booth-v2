@@ -59,7 +59,7 @@ impl super::CameraBackend for NokhwaCameraBackend {
         // We prefer non-"integrated" cameras and pick the lowest index.
         let cameras = nokhwa::query(nokhwa::utils::ApiBackend::Auto)?;
         let default_camera = cameras.into_iter().min_by_key(|info| {
-            let integrated = info.description().to_lowercase().contains("integrated");
+            let integrated = info.human_name().to_lowercase().contains("integrated");
             (integrated, info.index().as_index().unwrap_or(0))
         });
         Ok(default_camera.map(|info| Box::new(NokhwaCamera::new(info)) as Box<dyn super::Camera>))
