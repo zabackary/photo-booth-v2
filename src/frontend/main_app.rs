@@ -4,27 +4,20 @@ use image::RgbaImage;
 use super::camera_feed::{CameraFeed, CameraFeedOptions};
 
 mod animations;
-// mod capture_photos;
+
+mod capture_photos;
+mod capture_photos_prepare;
 // mod email_entry;
 // mod emailing;
 mod preview;
 // mod rendered_preview;
-// mod status_overlay;
+mod status_overlay;
 
-// use capture_photos::{CapturePhotos, CapturePhotosEffect, CapturePhotosMessage};
-// use email_entry::{EmailEntry, EmailEntryEffect, EmailEntryMessage};
-// use emailing::{Emailing, EmailingEffect, EmailingMessage};
-// use payment_required::{PaymentRequired, PaymentRequiredEffect, PaymentRequiredMessage};
-use preview::{Preview, PreviewMessage};
-// use rendered_preview::{RenderedPreview, RenderedPreviewEffect, RenderedPreviewMessage};
-// use student_id_entry::{StudentIDEntry, StudentIDEntryEffect, StudentIDEntryMessage};
-
+#[derive(Debug)]
 enum MainAppPage {
-    Preview(Preview),
-    // CapturePhotosPrepare {
-    //     ready_timeline: anim::Timeline<animations::ready::AnimationState>,
-    // },
-    // CapturePhotos(CapturePhotos),
+    Preview(preview::Preview),
+    CapturePhotosPrepare(capture_photos_prepare::CapturePhotosPrepare),
+    CapturePhotos(capture_photos::CapturePhotos),
     // RenderedPreview(RenderedPreview),
     // EmailEntry(EmailEntry),
     // Emailing(Emailing),
@@ -33,17 +26,17 @@ enum MainAppPage {
 
 #[derive(Debug, Clone)]
 pub enum MainAppMessage {
-    // KeyReleased(KeyMessage),
+    CameraFeed(super::camera_feed::CameraMessage),
+
     // UploadFinished(Result<crate::backend::storage::StorageHandle, String>),
     // EmailFinished(Result<(), String>),
     // PrintFinished(Result<(), String>),
-    // OtherKeyPress,
-    CameraFeed(super::camera_feed::CameraMessage),
+    Preview(preview::PreviewMessage),
+    CapturePhotosPrepare(capture_photos_prepare::CapturePhotosPrepareMessage),
+    CapturePhotos(capture_photos::CapturePhotosMessage),
     // EmailEntry(EmailEntryMessage),
     // PaymentRequired(PaymentRequiredMessage),
     // Emailing(EmailingMessage),
-    // CapturePhotos(CapturePhotosMessage),
-    Preview(PreviewMessage),
     // RenderedPreview(RenderedPreviewMessage),
 }
 
@@ -54,22 +47,14 @@ pub enum MainAppAction {
 }
 
 /// State needed for the current session
+#[derive(Debug, Default)]
 pub struct Session {
     captured_photos: Vec<RgbaImage>,
     strips: Option<Vec<RgbaImage>>,
     strip_handles: Option<Vec<iced::widget::image::Handle>>,
 }
 
-impl Default for Session {
-    fn default() -> Self {
-        Self {
-            captured_photos: Vec::new(),
-            strips: None,
-            strip_handles: None,
-        }
-    }
-}
-
+#[derive(Debug)]
 pub struct MainApp {
     feed: CameraFeed,
     page: MainAppPage,
@@ -88,7 +73,7 @@ impl MainApp {
         (
             Self {
                 feed,
-                page: MainAppPage::Preview(Preview::new()),
+                page: MainAppPage::Preview(preview::Preview::new()),
                 session: Session::default(),
                 manager,
                 config,
@@ -101,8 +86,8 @@ impl MainApp {
         self.feed.update_options(
             if matches!(
                 self.page,
-                // MainAppPage::CapturePhotosPrepare { .. }
-                //     | MainAppPage::CapturePhotos(_)
+                MainAppPage::CapturePhotosPrepare(_)
+                    | MainAppPage::CapturePhotos(_)
                     | MainAppPage::Preview(_)
             ) {
                 CameraFeedOptions {
@@ -239,9 +224,70 @@ impl MainApp {
                 if let MainAppPage::Preview(preview) = &mut self.page {
                     match preview.update(message) {
                         preview::PreviewAction::Task(task) => {
-                            return MainAppAction::Task(task.map(MainAppMessage::Preview));
+                            MainAppAction::Task(task.map(MainAppMessage::Preview))
+                        }
+                        preview::PreviewAction::Complete => {
+                            self.page = MainAppPage::CapturePhotosPrepare(
+                                capture_photos_prepare::CapturePhotosPrepare::new(),
+                            );
+                            MainAppAction::None
                         }
                         preview::PreviewAction::None => MainAppAction::None,
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            }
+            MainAppMessage::CapturePhotosPrepare(message) => {
+                if let MainAppPage::CapturePhotosPrepare(capture_photos_prepare) = &mut self.page {
+                    match capture_photos_prepare.update(message) {
+                        capture_photos_prepare::CapturePhotosPrepareAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::CapturePhotosPrepare))
+                        }
+                        capture_photos_prepare::CapturePhotosPrepareAction::Complete => {
+                            self.page =
+                                MainAppPage::CapturePhotos(capture_photos::CapturePhotos::new(
+                                    self.manager.clone(),
+                                    self.config,
+                                ));
+                            MainAppAction::None
+                        }
+                        capture_photos_prepare::CapturePhotosPrepareAction::None => {
+                            MainAppAction::None
+                        }
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            }
+            MainAppMessage::CapturePhotos(message) => {
+                if let MainAppPage::CapturePhotos(capture_photos) = &mut self.page {
+                    match capture_photos.update(message) {
+                        capture_photos::CapturePhotosAction::PhotosComplete { photos } => {
+                            // TODO: process captured photos into strips and move to preview page
+
+                            // // Process captured photos
+                            // self.session.captured_photos = photos;
+                            // let strip = crate::backend::photo_processing::render_take(
+                            //     self.session.captured_photos.clone(),
+                            // );
+                            // self.session.strips = Some(vec![strip]);
+                            // let strip_handle = iced::widget::image::Handle::from_rgba(
+                            //     self.session.strips.as_ref().unwrap()[0].width(),
+                            //     self.session.strips.as_ref().unwrap()[0].height(),
+                            //     self.session.strips.as_ref().unwrap()[0].as_raw().clone(),
+                            // );
+                            // self.session.strip_handles =
+                            //     Some(vec![strip_handle.clone()]);
+
+                            // Move to rendered preview page
+                            // self.page = MainAppPage::RenderedPreview(RenderedPreview::new(strip_handle));
+                            MainAppAction::None
+                        }
+                        capture_photos::CapturePhotosAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::CapturePhotos))
+                        }
+                        capture_photos::CapturePhotosAction::None => MainAppAction::None,
                     }
                 } else {
                     MainAppAction::None
@@ -345,17 +391,14 @@ impl MainApp {
                 MainAppPage::Preview(preview) => {
                     preview.subscription().map(MainAppMessage::Preview)
                 }
+                MainAppPage::CapturePhotosPrepare(capture_photos_prepare) => capture_photos_prepare
+                    .subscription()
+                    .map(MainAppMessage::CapturePhotosPrepare),
+                MainAppPage::CapturePhotos(capture_photos) => capture_photos
+                    .subscription()
+                    .map(MainAppMessage::CapturePhotos),
                 _ => iced::Subscription::none(),
             },
-            // iced::subscription::events().map(|event| match event {
-            //     iced::Event::Keyboard(keyboard_event) => match keyboard_event {
-            //         iced::keyboard::Event::KeyReleased { key_code, .. } => {
-            //             MainAppMessage::KeyReleased(KeyMessage::from(key_code))
-            //         }
-            //         _ => MainAppMessage::OtherKeyPress,
-            //     },
-            //     _ => MainAppMessage::OtherKeyPress,
-            // }),
         ])
     }
 
@@ -366,8 +409,8 @@ impl MainApp {
                 .view(
                     if matches!(
                         self.page,
-                        // MainAppPage::CapturePhotosPrepare { .. }
-                        //     | MainAppPage::CapturePhotos(_)
+                        MainAppPage::CapturePhotosPrepare { .. }
+                            | MainAppPage::CapturePhotos(_)
                             | MainAppPage::Preview(_)
                     ) {
                         ContentFit::Contain
@@ -378,19 +421,18 @@ impl MainApp {
                 .map(MainAppMessage::CameraFeed),
             match &self.page {
                 MainAppPage::Preview(preview) => preview.view().map(MainAppMessage::Preview),
-                // MainAppPage::CapturePhotosPrepare { ready_timeline } => {
-                //     animations::ready::view(ready_timeline.value()).into()
-                // }
-                // MainAppPage::CapturePhotos(capture_photos) => {
-                //     capture_photos.view().map(MainAppMessage::CapturePhotos)
-                // }
-                // MainAppPage::RenderedPreview(rendered_preview) => {
-                //     rendered_preview.view().map(MainAppMessage::RenderedPreview)
-                // }
-                // MainAppPage::EmailEntry(email_entry) => {
-                //     email_entry.view().map(MainAppMessage::EmailEntry).into()
-                // }
-                // MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
+                MainAppPage::CapturePhotosPrepare(capture_photos_prepare) => capture_photos_prepare
+                    .view()
+                    .map(MainAppMessage::CapturePhotosPrepare),
+                MainAppPage::CapturePhotos(capture_photos) => {
+                    capture_photos.view().map(MainAppMessage::CapturePhotos)
+                } // MainAppPage::RenderedPreview(rendered_preview) => {
+                  //     rendered_preview.view().map(MainAppMessage::RenderedPreview)
+                  // }
+                  // MainAppPage::EmailEntry(email_entry) => {
+                  //     email_entry.view().map(MainAppMessage::EmailEntry).into()
+                  // }
+                  // MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
             },
         ])
         .into()

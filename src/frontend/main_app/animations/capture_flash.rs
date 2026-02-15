@@ -11,16 +11,16 @@ pub const ANIMATION_LENGTH: Duration = Duration::from_millis(400 / LENGTH_DIVISO
 
 #[derive(Debug, Clone)]
 pub struct CaptureFlashAnimation {
-    opacity: Animation<f32>,
+    opacity: Animation<bool>,
 }
 
 impl CaptureFlashAnimation {
     /// Create a new capture flash animation and start it immediately
     pub fn new() -> Self {
-        let opacity = Animation::new(1.0)
+        let opacity = Animation::new(false)
             .duration(ANIMATION_LENGTH)
-            .easing(iced::animation::Easing::EaseOut)
-            .go(0.0, Instant::now());
+            .easing(iced::animation::Easing::EaseOutCubic)
+            .go(true, Instant::now());
         Self { opacity }
     }
 
@@ -30,9 +30,11 @@ impl CaptureFlashAnimation {
     }
 
     pub fn view<'a, Message: 'a>(&'a self) -> Container<'a, Message> {
+        let opacity = self.opacity.interpolate(0.0, 1.0, Instant::now());
+
         container(Space::new())
             .style(move |_| container::Style {
-                background: Some(Color::WHITE.scale_alpha(self.opacity.value()).into()),
+                background: Some(Color::WHITE.scale_alpha(opacity).into()),
                 ..Default::default()
             })
             .width(Length::Fill)

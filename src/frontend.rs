@@ -9,11 +9,14 @@ use std::time::Instant;
 use main_app::{MainApp, MainAppMessage};
 use setup::{Setup, SetupMessage};
 
+#[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum AppPage {
     Setup(Setup),
     MainApp(MainApp),
 }
 
+#[derive(Debug)]
 pub struct PhotoBoothApplication {
     page: AppPage,
     config: &'static crate::config::Config,
@@ -105,14 +108,25 @@ impl PhotoBoothApplication {
                     if key == iced::keyboard::Key::Named(iced::keyboard::key::Named::F11) {
                         log::debug!("Toggling fullscreen mode");
                         Some(PhotoBoothMessage::ToggleFullscreen)
-                    } else if key == iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape)
-                        && modifiers.control()
+                    } else if (key
+                        == iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape)
+                        && modifiers.control())
                     {
                         log::debug!("Quitting application");
                         Some(PhotoBoothMessage::Quit)
                     } else {
                         None
                     }
+                } else if let iced::keyboard::Event::KeyPressed {
+                    key: iced::keyboard::Key::Named(iced::keyboard::key::Named::F4),
+                    modifiers,
+                    ..
+                } = event
+                    && modifiers.alt()
+                {
+                    // attempt to catch F4 quit shortcuts in order cleanly shut down
+                    log::debug!("Quitting application via F4 key");
+                    Some(PhotoBoothMessage::Quit)
                 } else {
                     None
                 }

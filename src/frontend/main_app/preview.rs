@@ -9,11 +9,15 @@ use crate::frontend::title_overlay::{supporting_text, title_text};
 pub struct Preview;
 
 #[derive(Debug, Clone)]
-pub enum PreviewMessage {}
+pub enum PreviewMessage {
+    Start,
+}
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum PreviewAction {
     Task(iced::Task<PreviewMessage>),
+    Complete,
     None,
 }
 
@@ -22,12 +26,20 @@ impl Preview {
         Self
     }
 
-    pub fn update(&mut self, _message: PreviewMessage) -> PreviewAction {
-        PreviewAction::None
+    pub fn update(&mut self, message: PreviewMessage) -> PreviewAction {
+        match message {
+            PreviewMessage::Start => PreviewAction::Complete,
+        }
     }
 
     pub fn subscription(&self) -> iced::Subscription<PreviewMessage> {
-        iced::Subscription::none()
+        iced::keyboard::listen().filter_map(|event| match event {
+            iced::keyboard::Event::KeyReleased {
+                key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Space),
+                ..
+            } => Some(PreviewMessage::Start),
+            _ => None,
+        })
     }
 
     pub fn view(&self) -> Element<'_, PreviewMessage> {

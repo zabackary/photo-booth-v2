@@ -20,8 +20,9 @@ pub enum SetupAction {
     },
 }
 
+#[derive(Debug)]
 pub struct Setup {
-    starting: bool,
+    error: Option<String>,
     config: &'static crate::config::Config,
 }
 
@@ -29,8 +30,8 @@ impl Setup {
     pub fn new(config: &'static crate::config::Config) -> (Self, Task<SetupMessage>) {
         (
             Setup {
-                starting: false,
                 config,
+                error: None,
             },
             Task::none(),
         )
@@ -62,6 +63,7 @@ impl Setup {
             }
             SetupMessage::BackendInitialized(Err(err)) => {
                 log::error!("Failed to initialize backends: {}", err);
+                self.error = Some(err);
                 SetupAction::None
             }
         }
@@ -78,6 +80,11 @@ impl Setup {
                     //     SetupMessage::CameraSelected,
                     // )
                     // .into(),
+                    if let Some(error) = &self.error {
+                        text(format!("Error: {}", error)).into()
+                    } else {
+                        iced::widget::space().into()
+                    },
                     button("Start")
                         .on_press_maybe(Some(SetupMessage::StartPressed))
                         .into(),

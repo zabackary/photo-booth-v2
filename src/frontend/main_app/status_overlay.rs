@@ -1,4 +1,4 @@
-use iced::{widget::Container, Element};
+use iced::{Element, widget::Container};
 
 /// A small overlay for displaying status messages.
 ///
@@ -15,6 +15,7 @@ pub fn status_overlay<'a, Message: 'a>(
                 ..Default::default()
             },
             shadow: Default::default(),
+            snap: true,
         },
     ))
     .center(iced::Length::Fill)

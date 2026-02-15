@@ -11,16 +11,16 @@ pub const ANIMATION_LENGTH: Duration = Duration::from_millis(3000 / LENGTH_DIVIS
 
 #[derive(Debug, Clone)]
 pub struct CapturePreviewAnimation {
-    progress: Animation<f32>,
+    progress: Animation<bool>,
     photo_aspect_ratio: f32,
 }
 
 impl CapturePreviewAnimation {
     pub fn new(photo_aspect_ratio: f32) -> Self {
-        let progress = Animation::new(0.0)
+        let progress = Animation::new(false)
             .duration(ANIMATION_LENGTH)
-            .easing(iced::animation::Easing::EaseOut)
-            .go(1.0, Instant::now());
+            .easing(iced::animation::Easing::EaseInOutCubic)
+            .go(true, Instant::now());
 
         Self {
             progress,
@@ -34,7 +34,7 @@ impl CapturePreviewAnimation {
 
     pub fn view<'a, Message: 'a>(&'a self, handle: &'a Handle) -> Container<'a, Message> {
         container(responsive(move |size| {
-            let t = self.progress.value().clamp(0.0, 1.0);
+            let t = self.progress.interpolate(0.0, 1.0, Instant::now());
 
             // keyframe interpolation helper
             let lerp = |a: f32, b: f32, t: f32| a + (b - a) * t;

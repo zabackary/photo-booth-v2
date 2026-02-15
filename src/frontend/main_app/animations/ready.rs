@@ -13,15 +13,15 @@ const TEXT_SIZE: f32 = 60.0;
 
 #[derive(Debug, Clone)]
 pub struct ReadyAnimation {
-    progress: Animation<f32>,
+    progress: Animation<bool>,
 }
 
 impl ReadyAnimation {
     pub fn new() -> Self {
-        let progress = Animation::new(0.0)
+        let progress = Animation::new(false)
             .duration(ANIMATION_LENGTH)
-            .easing(iced::animation::Easing::EaseOut)
-            .go(1.0, Instant::now());
+            .easing(iced::animation::Easing::EaseInOutCubic)
+            .go(true, Instant::now());
 
         Self { progress }
     }
@@ -31,7 +31,7 @@ impl ReadyAnimation {
     }
 
     pub fn view<Message: 'static>(&self) -> Container<'static, Message> {
-        let t = self.progress.value().clamp(0.0, 1.0);
+        let t = self.progress.interpolate(0.0, 1.0, Instant::now());
 
         let lerp = |a: f32, b: f32, t: f32| a + (b - a) * t;
 
