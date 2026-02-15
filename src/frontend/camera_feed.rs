@@ -1,8 +1,8 @@
 mod border_radius;
 
-use iced::Task;
 use iced::border::Radius;
 use iced::widget::image::Handle;
+use iced::{ContentFit, Length, Task};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
@@ -77,23 +77,33 @@ impl CameraFeed {
     }
 
     /// Get the image handle of the current frame.
-    pub fn handle(&self) -> Handle {
+    fn handle(&self) -> Option<Handle> {
         if let Some(frame) = self.manager.camera_manager.take_frame_preview() {
             let frame = image_postprocessing(frame, self.options());
             let handle = Handle::from_rgba(frame.width(), frame.height(), frame.into_raw());
             *self.current_frame.lock().expect("failed to lock frame") = Some(handle.clone());
-            return handle;
+            return Some(handle);
         }
         self.current_frame
             .lock()
             .expect("failed to lock frame")
             .clone()
-            .unwrap_or_else(|| Handle::from_rgba(0, 0, vec![]))
     }
 
     /// Wrap the output of `frame_image` in an `Image` widget.
-    pub fn view(&self) -> iced::widget::image::Image<Handle> {
-        iced::widget::Image::new(self.handle())
+    pub fn view(&self, content_fit: ContentFit) -> iced::Element<'_, CameraMessage> {
+        if let Some(handle) = self.handle() {
+            iced::widget::Image::new(handle)
+                .content_fit(content_fit)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into()
+        } else {
+            iced::widget::space()
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into()
+        }
     }
 
     pub fn update(&mut self, _message: CameraMessage) -> Task<CameraMessage> {

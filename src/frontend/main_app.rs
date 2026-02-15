@@ -1,7 +1,6 @@
 use iced::{ContentFit, Element, Length, Task};
 use image::RgbaImage;
 
-
 use super::camera_feed::{CameraFeed, CameraFeedOptions};
 
 mod animations;
@@ -364,8 +363,7 @@ impl MainApp {
         iced::widget::stack([
             // Bottom layer: camera feed
             self.feed
-                .view()
-                .content_fit(
+                .view(
                     if matches!(
                         self.page,
                         // MainAppPage::CapturePhotosPrepare { .. }
@@ -377,9 +375,7 @@ impl MainApp {
                         ContentFit::Cover
                     },
                 )
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .into(),
+                .map(MainAppMessage::CameraFeed),
             match &self.page {
                 MainAppPage::Preview(preview) => preview.view().map(MainAppMessage::Preview),
                 // MainAppPage::CapturePhotosPrepare { ready_timeline } => {
