@@ -27,9 +27,11 @@ impl RendererManager {
     }
 
     /// Render a photo
-    pub async fn render(&self, photos: Vec<image::RgbaImage>) -> Result<(), anyhow::Error> {
+    pub async fn render(
+        &self,
+        photos: Vec<image::RgbaImage>,
+    ) -> Result<Vec<image::RgbaImage>, anyhow::Error> {
         let guard = self.backend.lock().await;
-        guard.render(photos).await?;
-        Ok(())
+        guard.render(photos).await
     }
 }
