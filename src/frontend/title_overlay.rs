@@ -1,7 +1,7 @@
 use iced::{
-    gradient::Linear,
-    widget::{container, text, Text},
     Alignment, Background, Color, Element, Length, Radians,
+    gradient::Linear,
+    widget::{Text, container, text},
 };
 
 pub fn faded_overlay<'a, Message: 'a>(
@@ -115,7 +115,7 @@ pub fn full_title_overlay<'a, Message: 'a>(
         .into()
 }
 
-pub fn title_text(content: &str) -> Text {
+pub fn title_text(content: &str) -> Text<'_> {
     text(content)
         .style(|theme: &iced::Theme| text::Style {
             color: Some(theme.extended_palette().background.base.text),
@@ -126,7 +126,7 @@ pub fn title_text(content: &str) -> Text {
         .width(Length::Fill)
 }
 
-pub fn supporting_text(content: &str) -> Text {
+pub fn supporting_text(content: &str) -> Text<'_> {
     text(content)
         .style(|theme: &iced::Theme| text::Style {
             color: Some(

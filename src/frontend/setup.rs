@@ -70,7 +70,7 @@ impl Setup {
         }
     }
 
-    pub fn view(&self) -> Element<SetupMessage> {
+    pub fn view(&self) -> Element<'_, SetupMessage> {
         container(
             container(
                 column([

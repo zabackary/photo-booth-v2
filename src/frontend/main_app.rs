@@ -1,12 +1,8 @@
-use iced::{ContentFit, Element, Length, Task, widget::image::Handle};
+use iced::{ContentFit, Element, Length, Task};
 use image::RgbaImage;
 
-use crate::frontend::{AppPage, KeyMessage, PhotoBoothMessage};
 
-use super::{
-    camera_feed::{CameraFeed, CameraFeedOptions},
-    loading_spinners,
-};
+use super::camera_feed::{CameraFeed, CameraFeedOptions};
 
 mod animations;
 // mod capture_photos;
@@ -364,7 +360,7 @@ impl MainApp {
         ])
     }
 
-    pub fn view(&self) -> Element<MainAppMessage> {
+    pub fn view(&self) -> Element<'_, MainAppMessage> {
         iced::widget::stack([
             // Bottom layer: camera feed
             self.feed

@@ -83,7 +83,7 @@ impl PhotoBoothApplication {
         }
     }
 
-    pub fn view(&self) -> iced::Element<PhotoBoothMessage> {
+    pub fn view(&self) -> iced::Element<'_, PhotoBoothMessage> {
         match &self.page {
             AppPage::MainApp(page) => page.view().map(PhotoBoothMessage::MainApp),
             AppPage::Setup(page) => page.view().map(PhotoBoothMessage::Setup),

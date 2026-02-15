@@ -30,7 +30,7 @@ impl Preview {
         iced::Subscription::none()
     }
 
-    pub fn view(&self) -> Element<PreviewMessage> {
+    pub fn view(&self) -> Element<'_, PreviewMessage> {
         iced::widget::container(
             iced::widget::container(column([
                 title_text("Get ready to take your pictures")
