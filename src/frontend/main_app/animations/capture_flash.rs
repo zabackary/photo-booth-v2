@@ -19,7 +19,7 @@ impl CaptureFlashAnimation {
     pub fn new() -> Self {
         let opacity = Animation::new(false)
             .duration(ANIMATION_LENGTH)
-            .easing(iced::animation::Easing::EaseOutCubic)
+            .easing(iced::animation::Easing::EaseInCubic)
             .go(true, Instant::now());
         Self { opacity }
     }
@@ -30,7 +30,7 @@ impl CaptureFlashAnimation {
     }
 
     pub fn view<'a, Message: 'a>(&'a self) -> Container<'a, Message> {
-        let opacity = self.opacity.interpolate(0.0, 1.0, Instant::now());
+        let opacity = self.opacity.interpolate(1.0, 0.0, Instant::now());
 
         container(Space::new())
             .style(move |_| container::Style {

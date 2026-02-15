@@ -76,7 +76,7 @@ impl CapturePreviewAnimation {
                     .opacity(opacity)
                     .width(image_width)
                     .height(image_height)
-                    .rotation(Rotation::Floating(rotation_radians.into()))
+                    .rotation(Rotation::Solid(rotation_radians.into()))
                     .into(),
             ]))
             .style(move |_| container::Style {

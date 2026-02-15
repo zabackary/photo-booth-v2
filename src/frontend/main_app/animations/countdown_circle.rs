@@ -21,7 +21,7 @@ impl CountdownCircleAnimation {
     pub fn new() -> Self {
         let progress = Animation::new(false)
             .duration(ANIMATION_LENGTH)
-            .easing(iced::animation::Easing::EaseInOutCubic)
+            .easing(iced::animation::Easing::EaseOutCubic)
             .go(true, Instant::now());
 
         Self { progress }
