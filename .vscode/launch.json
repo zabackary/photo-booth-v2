@@ -1,0 +1,41 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+
+  "configurations": [
+    {
+      "name": "Debug executable",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "run",
+          "--bin=photo-booth-v2",
+          "--",
+          "--config",
+          "config.example.json"
+        ],
+        "env": {
+          "RUST_LOG": "photo_booth_v2=debug",
+          "_NO_DEBUG_HEAP": "1"
+        }
+      },
+      "lldb.evaluateForLanguage": true,
+      "lldb.verbose": false,
+      "args": []
+    }
+    // {
+    //   "name": "Debug unit tests in executable 'photo-booth-v2'",
+    //   "type": "lldb",
+    //   "request": "launch",
+    //   "cargo": {
+    //     "args": [
+    //       "test",
+    //       "--bin=photo-booth-v2"
+    //     ]
+    //   }
+    // }
+  ]
+}
