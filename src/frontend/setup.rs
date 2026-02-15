@@ -42,27 +42,25 @@ impl Setup {
             //     self.camera_option = Some(new);
             //     Task::none()
             // }
-            SetupMessage::StartPressed => SetupAction::Task(
-                iced::window::oldest()
-                    .then(|id| {
-                        iced::Task::batch([
-                            iced::window::set_mode(id.unwrap(), iced::window::Mode::Fullscreen),
-                            iced::window::toggle_decorations(id.unwrap()),
-                        ])
-                    })
-                    .then(|_: ()| {
-                        Task::perform(
-                            crate::backend::manager::BackendManager::from_config(self.config),
-                            |result| {
-                                SetupMessage::BackendInitialized(result.map_err(|err| {
-                                    log::error!("Failed to initialize backends: {:?}", err);
-                                    err.to_string()
-                                }))
-                            },
-                        )
-                    }),
-            ),
-            SetupMessage::BackendInitialized(Ok(manager)) => SetupAction::StartMainApp { manager },
+            SetupMessage::StartPressed => SetupAction::Task(iced::window::oldest().then(|id| {
+                iced::Task::batch([
+                    iced::window::set_mode(id.unwrap(), iced::window::Mode::Fullscreen),
+                    iced::window::toggle_decorations(id.unwrap()),
+                    Task::perform(
+                        crate::backend::manager::BackendManager::from_config(self.config),
+                        |result| {
+                            SetupMessage::BackendInitialized(result.map_err(|err| {
+                                log::error!("Failed to initialize backends: {:?}", err);
+                                err.to_string()
+                            }))
+                        },
+                    ),
+                ])
+            })),
+            SetupMessage::BackendInitialized(Ok(manager)) => {
+                log::info!("Successfully initialized backends, starting app");
+                SetupAction::StartMainApp { manager }
+            }
             SetupMessage::BackendInitialized(Err(err)) => {
                 log::error!("Failed to initialize backends: {}", err);
                 SetupAction::None
