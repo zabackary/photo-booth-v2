@@ -45,7 +45,6 @@ impl Setup {
             SetupMessage::StartPressed => SetupAction::Task(iced::window::oldest().then(|id| {
                 iced::Task::batch([
                     iced::window::set_mode(id.unwrap(), iced::window::Mode::Fullscreen),
-                    iced::window::toggle_decorations(id.unwrap()),
                     Task::perform(
                         crate::backend::manager::BackendManager::from_config(self.config),
                         |result| {

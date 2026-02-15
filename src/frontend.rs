@@ -24,14 +24,8 @@ pub struct PhotoBoothApplication {
 pub enum PhotoBoothMessage {
     Setup(SetupMessage),
     MainApp(MainAppMessage),
-}
-
-#[derive(Debug, Clone, Copy)]
-enum KeyMessage {
-    Space,
-    Up,
-    Down,
-    Escape,
+    ToggleFullscreen,
+    Quit,
 }
 
 impl PhotoBoothApplication {
@@ -80,6 +74,16 @@ impl PhotoBoothApplication {
                     iced::Task::none()
                 }
             }
+            PhotoBoothMessage::ToggleFullscreen => iced::window::oldest().then(|id| {
+                iced::window::mode(id.unwrap()).then(move |mode| {
+                    if mode == iced::window::Mode::Fullscreen {
+                        iced::window::set_mode(id.unwrap(), iced::window::Mode::Windowed)
+                    } else {
+                        iced::window::set_mode(id.unwrap(), iced::window::Mode::Fullscreen)
+                    }
+                })
+            }),
+            PhotoBoothMessage::Quit => iced::exit(),
         }
     }
 
@@ -91,9 +95,28 @@ impl PhotoBoothApplication {
     }
 
     pub fn subscription(&self) -> iced::Subscription<PhotoBoothMessage> {
-        iced::Subscription::batch([match &self.page {
-            AppPage::MainApp(page) => page.subscription().map(PhotoBoothMessage::MainApp),
-            AppPage::Setup(page) => page.subscription().map(PhotoBoothMessage::Setup),
-        }])
+        iced::Subscription::batch([
+            match &self.page {
+                AppPage::MainApp(page) => page.subscription().map(PhotoBoothMessage::MainApp),
+                AppPage::Setup(page) => page.subscription().map(PhotoBoothMessage::Setup),
+            },
+            iced::keyboard::listen().filter_map(|event| {
+                if let iced::keyboard::Event::KeyReleased { key, modifiers, .. } = event {
+                    if key == iced::keyboard::Key::Named(iced::keyboard::key::Named::F11) {
+                        log::debug!("Toggling fullscreen mode");
+                        Some(PhotoBoothMessage::ToggleFullscreen)
+                    } else if key == iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape)
+                        && modifiers.control()
+                    {
+                        log::debug!("Quitting application");
+                        Some(PhotoBoothMessage::Quit)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }),
+        ])
     }
 }
