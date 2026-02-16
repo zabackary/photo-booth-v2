@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use image::buffer::ConvertBuffer;
+
 use crate::backend::storage::StorageHandle;
 
 /// A storage manager that handles storing photos and providing storage handles for them
@@ -39,6 +41,11 @@ impl StorageManager {
         photos: Vec<image::RgbaImage>,
     ) -> Result<StorageHandle, anyhow::Error> {
         let guard = self.backend.lock().await;
-        guard.upload(strip, photos).await
+        guard
+            .upload(
+                strip.convert(),
+                photos.into_iter().map(|p| p.convert()).collect(),
+            )
+            .await
     }
 }

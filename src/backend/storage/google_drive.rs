@@ -2,7 +2,7 @@ use std::{io::Cursor, path::Path, sync::Arc};
 
 use anyhow::Context;
 use gcp_auth::TokenProvider as _;
-use image::{RgbaImage, buffer::ConvertBuffer};
+use image::{RgbImage, RgbaImage, buffer::ConvertBuffer};
 use reqwest::{
     Client,
     header::{HeaderMap, HeaderValue},
@@ -54,8 +54,8 @@ impl super::StorageBackend for GoogleDriveStorageBackend {
     /// Uploads the emails in a newline-separated text file called emails.txt.
     async fn upload(
         &self,
-        strip: RgbaImage,
-        photos: Vec<RgbaImage>,
+        strip: RgbImage,
+        photos: Vec<RgbImage>,
     ) -> Result<super::StorageHandle, anyhow::Error> {
         // sleep(Duration::from_secs(4)).await;
         let token = self
@@ -166,7 +166,6 @@ impl super::StorageBackend for GoogleDriveStorageBackend {
                         let mut encoded = Vec::new();
                         let mut encoded_cursor = Cursor::new(&mut encoded);
                         // Convert the photo to RGB since JPEG doesn't do alpha
-                        let photo: image::RgbImage = photo.convert();
                         photo
                             .write_to(&mut encoded_cursor, image::ImageFormat::Jpeg)
                             .with_context(|| "failed to encode photo")?;

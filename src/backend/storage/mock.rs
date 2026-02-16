@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use image::RgbaImage;
+use image::RgbImage;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 const MOCK_PATH: &str = "/dev/null";
@@ -15,8 +15,8 @@ pub struct MockStorageBackend {}
 impl super::StorageBackend for MockStorageBackend {
     async fn upload(
         &self,
-        _strip: RgbaImage,
-        _photos: Vec<RgbaImage>,
+        _strip: RgbImage,
+        _photos: Vec<RgbImage>,
     ) -> Result<super::StorageHandle, anyhow::Error> {
         log::info!("Uploading to mock storage backend");
         Ok(super::StorageHandle::LocalFilesystem {

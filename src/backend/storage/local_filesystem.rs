@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context as _;
-use image::RgbaImage;
+use image::RgbImage;
 
 /// A storage backend that saves photos to the local filesystem
 #[derive(Debug, Clone)]
@@ -24,8 +24,8 @@ impl LocalFilesystemStorageBackend {
 impl super::StorageBackend for LocalFilesystemStorageBackend {
     async fn upload(
         &self,
-        strip: RgbaImage,
-        photos: Vec<RgbaImage>,
+        strip: RgbImage,
+        photos: Vec<RgbImage>,
     ) -> Result<super::StorageHandle, anyhow::Error> {
         // Create a unique subdirectory for this upload using a timestamp
         let timestamp = chrono::Local::now().format("%Y%m%d%H%M%S");
@@ -35,7 +35,7 @@ impl super::StorageBackend for LocalFilesystemStorageBackend {
             .with_context(|| format!("failed to create upload directory at {:?}", upload_dir))?;
 
         // Save the strip and photos to the upload directory
-        let strip_path = upload_dir.join("strip.jpg");
+        let strip_path = upload_dir.join("strip.png");
         strip
             .save(&strip_path)
             .with_context(|| format!("failed to save photo strip to {:?}", strip_path))?;
@@ -46,6 +46,9 @@ impl super::StorageBackend for LocalFilesystemStorageBackend {
                 .save(&photo_path)
                 .with_context(|| format!("failed to save photo {} to {:?}", i + 1, photo_path))?;
         }
+
+        // FIXME: remove this
+        tokio::time::sleep(std::time::Duration::from_secs(8)).await;
 
         Ok(super::StorageHandle::LocalFilesystem { path: upload_dir })
     }

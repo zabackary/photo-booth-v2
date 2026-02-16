@@ -1,6 +1,6 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use image::RgbaImage;
+use image::RgbImage;
 
 #[cfg(feature = "storage_google_drive")]
 pub mod google_drive;
@@ -15,8 +15,8 @@ pub trait StorageBackend: Debug + Send + Sync + 'static {
     /// Upload a photo strip and individual photos, returning a handle to the uploaded content
     async fn upload(
         &self,
-        strip: RgbaImage,
-        photos: Vec<RgbaImage>,
+        strip: RgbImage,
+        photos: Vec<RgbImage>,
     ) -> Result<StorageHandle, anyhow::Error>;
 }
 
