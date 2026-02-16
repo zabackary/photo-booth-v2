@@ -2,7 +2,7 @@ use std::{io::Cursor, path::Path, sync::Arc};
 
 use anyhow::Context;
 use gcp_auth::TokenProvider as _;
-use image::{RgbImage, RgbaImage, buffer::ConvertBuffer};
+use image::RgbImage;
 use reqwest::{
     Client,
     header::{HeaderMap, HeaderValue},

@@ -47,9 +47,6 @@ impl super::StorageBackend for LocalFilesystemStorageBackend {
                 .with_context(|| format!("failed to save photo {} to {:?}", i + 1, photo_path))?;
         }
 
-        // FIXME: remove this
-        tokio::time::sleep(std::time::Duration::from_secs(8)).await;
-
         Ok(super::StorageHandle::LocalFilesystem { path: upload_dir })
     }
 }
