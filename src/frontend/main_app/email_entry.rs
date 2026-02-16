@@ -180,7 +180,7 @@ impl EmailEntry {
                                         normal
                                     })
                                     .padding(Padding { bottom: 10.0, left: 24.0, right: 24.0, top: 10.0 })
-                                    .on_press_maybe((!is_adding).then_some(EmailEntryMessage::EmailSubmit))
+                                    .on_press(EmailEntryMessage::EmailSubmit)
                                     .padding(10)
                                     .into(),
                                 ])
