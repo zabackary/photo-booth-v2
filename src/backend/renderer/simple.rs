@@ -97,6 +97,7 @@ impl super::RendererBackend for SimpleRendererBackend {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Template {
     pub image_path: PathBuf,
     pub frames: Vec<Frame>,
