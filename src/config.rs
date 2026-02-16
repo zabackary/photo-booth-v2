@@ -57,7 +57,7 @@ pub struct CameraConfig {
 
 /// The camera backend and its configration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum CameraBackendConfig {
     /// The gphoto2 camera backend, which uses the gphoto2 library to connect to cameras
     #[cfg(feature = "camera_gphoto2")]
@@ -66,6 +66,7 @@ pub enum CameraBackendConfig {
     #[cfg(feature = "camera_nokhwa")]
     Nokhwa {
         /// Whether to use the same webcam profile for both preview and capture
+        #[serde(default, rename = "fastCapture")]
         fast_capture: bool,
     },
     /// A mock camera backend that simulates a camera for testing and development
@@ -113,7 +114,7 @@ fn default_scale() -> f32 {
 
 /// The type of printer backend and its related configration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum PrinterBackendConfig {
     /// A mock printer backend that simulates a printer for testing and development
     #[cfg(feature = "mock")]
@@ -122,7 +123,7 @@ pub enum PrinterBackendConfig {
 
 /// The email backend and its configration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum EmailConfig {
     /// An email backend that sends photos via email using a Google Apps Script webhook
     #[cfg(feature = "email_gapps_script_webhook")]
@@ -137,7 +138,7 @@ pub enum EmailConfig {
 
 /// The storage backend and its configration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum StorageConfig {
     /// The Google Drive storage backend, which uses the Google Drive API to store photos and photo strips
     #[cfg(feature = "storage_google_drive")]
