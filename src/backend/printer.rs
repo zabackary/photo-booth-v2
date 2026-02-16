@@ -33,5 +33,5 @@ pub trait PrinterBackendHandle: Debug + Display {
 #[async_trait::async_trait]
 pub trait Printer: Debug + Send + Sync {
     /// Print a photo
-    async fn print(&mut self, photo: &image::RgbaImage) -> Result<(), anyhow::Error>;
+    async fn print(&mut self, photo: &image::RgbImage) -> Result<(), anyhow::Error>;
 }

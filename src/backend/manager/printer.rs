@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use image::buffer::ConvertBuffer as _;
+
 use crate::config::PrinterConfig;
 
 /// A printing manager that handles printing photos
@@ -101,6 +103,7 @@ impl PrinterManager {
 
     /// Print a photo
     pub async fn print(&self, photo: image::RgbaImage) -> Result<(), anyhow::Error> {
+        let photo: image::RgbImage = photo.convert();
         let mut printer = self.current_printer.lock().await;
         let processed_photo = self.preprocess_photo(photo);
         loop {
@@ -129,7 +132,7 @@ impl PrinterManager {
     }
 
     /// Preprocess a photo for printing according to the [`PrinterConfig`]
-    pub fn preprocess_photo(&self, photo: image::RgbaImage) -> image::RgbaImage {
+    pub fn preprocess_photo(&self, photo: image::RgbImage) -> image::RgbImage {
         let config = self.config.clone();
 
         let image = if config.auto_format {
@@ -141,7 +144,7 @@ impl PrinterManager {
             let canvas_aspect_ratio =
                 config.horizontal_resolution as f32 / config.vertical_resolution as f32;
             if photo_aspect_ratio < canvas_aspect_ratio / 2.0 {
-                let mut strip = image::RgbaImage::new(photo.width() * 2, photo.height());
+                let mut strip = image::RgbImage::new(photo.width() * 2, photo.height());
                 image::imageops::overlay(&mut strip, &photo, 0, 0);
                 image::imageops::overlay(&mut strip, &photo, photo.width() as i64, 0);
                 strip
@@ -150,7 +153,7 @@ impl PrinterManager {
                 // aspect ratio of the canvas, then we'll use a "strip" format where
                 // we duplicate the photo twice and put them on top of each other to fill
                 // the canvas in order to print out two copies.
-                let mut strip = image::RgbaImage::new(photo.width(), photo.height() * 2);
+                let mut strip = image::RgbImage::new(photo.width(), photo.height() * 2);
                 image::imageops::overlay(&mut strip, &photo, 0, 0);
                 image::imageops::overlay(&mut strip, &photo, 0, photo.height() as i64);
                 strip
@@ -180,10 +183,10 @@ impl PrinterManager {
             image::imageops::FilterType::Lanczos3,
         );
         // Center the resized image on the canvas
-        let mut canvas = image::RgbaImage::from_pixel(
+        let mut canvas = image::RgbImage::from_pixel(
             config.horizontal_resolution,
             config.vertical_resolution,
-            image::Rgba([255, 255, 255, 255]),
+            image::Rgb([255, 255, 255]),
         );
         let offset_x = (canvas.width() - resized.width()) / 2;
         let offset_y = (canvas.height() - resized.height()) / 2;
@@ -199,10 +202,10 @@ impl PrinterManager {
             image::imageops::FilterType::Lanczos3,
         );
         // Center the resized image on the canvas
-        let mut final_image = image::RgbaImage::from_pixel(
+        let mut final_image = image::RgbImage::from_pixel(
             config.horizontal_resolution,
             config.vertical_resolution,
-            image::Rgba([255, 255, 255, 255]),
+            image::Rgb([255, 255, 255]),
         );
         let offset_x = (config.horizontal_resolution - scaled_width) / 2;
         let offset_y = (config.vertical_resolution - scaled_height) / 2;

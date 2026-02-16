@@ -39,12 +39,14 @@ pub struct MockPrinter {}
 
 #[async_trait::async_trait]
 impl super::Printer for MockPrinter {
-    async fn print(&mut self, photo: &image::RgbaImage) -> Result<(), anyhow::Error> {
+    async fn print(&mut self, photo: &image::RgbImage) -> Result<(), anyhow::Error> {
         log::info!(
             "Printing mock photo of size {}x{}",
             photo.width(),
             photo.height()
         );
+        // FIXME: remove
+        tokio::time::sleep(std::time::Duration::from_secs(25)).await;
         Ok(())
     }
 }
