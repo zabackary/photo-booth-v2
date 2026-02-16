@@ -190,7 +190,12 @@ impl CapturePhotos {
             status_overlay::status_overlay(
                 text(format!(
                     "photo {} of {}",
-                    self.captured_photos.len() + 1,
+                    self.captured_photos.len()
+                        + match self.state {
+                            CapturePhotosState::Countdown { .. }
+                            | CapturePhotosState::Capture { .. } => 1,
+                            CapturePhotosState::Preview { .. } => 0,
+                        },
                     self.config.photos_per_strip
                 ))
                 .size(24),

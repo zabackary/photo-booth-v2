@@ -108,9 +108,8 @@ impl PhotoBoothApplication {
                     if key == iced::keyboard::Key::Named(iced::keyboard::key::Named::F11) {
                         log::debug!("Toggling fullscreen mode");
                         Some(PhotoBoothMessage::ToggleFullscreen)
-                    } else if (key
-                        == iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape)
-                        && modifiers.control())
+                    } else if key == iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape)
+                        && modifiers.control()
                     {
                         log::debug!("Quitting application");
                         Some(PhotoBoothMessage::Quit)
