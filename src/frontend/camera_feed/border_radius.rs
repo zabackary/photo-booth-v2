@@ -86,7 +86,7 @@ fn border_radius(
                 p += (2 * x + 2) as i32;
             } else {
                 // draw when moving to next pixel in y-direction
-                if y % 16 == 0 {
+                if y.is_multiple_of(16) {
                     draw(img, alpha, x / 16, y / 16);
                     draw(img, alpha, y / 16, x / 16);
                     skip_draw = true;

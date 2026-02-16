@@ -126,6 +126,8 @@ impl super::EmailBackend for GappsScriptWebhookEmailBackend {
                 "contactEmail": payload.contact_email,
             });
 
+            log::debug!("Sending email with payload: {:?}", body);
+
             let res = self
                 .client
                 .post(self.endpoint.clone())

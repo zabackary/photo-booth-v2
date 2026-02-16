@@ -45,6 +45,11 @@ impl super::Printer for MockPrinter {
             photo.width(),
             photo.height()
         );
+        // save to disk for now
+        let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S");
+        let filename = format!("mock_print_{}.jpg", timestamp);
+        photo.save(&filename)?;
+        log::info!("Saved mock printed photo to {}", filename);
         // FIXME: remove
         tokio::time::sleep(std::time::Duration::from_secs(25)).await;
         Ok(())

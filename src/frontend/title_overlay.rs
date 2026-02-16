@@ -4,50 +4,50 @@ use iced::{
     widget::{Text, container, text},
 };
 
-pub fn faded_overlay<'a, Message: 'a>(
-    content: impl Into<Element<'a, Message>>,
-    minimize_overlay: bool,
-) -> Element<'a, Message> {
-    container(content)
-        .style(move |theme: &iced::Theme| {
-            container::background(Background::Gradient(if minimize_overlay {
-                iced::Gradient::Linear(
-                    Linear::new(Radians::PI)
-                        .add_stop(0.0, Color::TRANSPARENT)
-                        .add_stop(0.4, Color::TRANSPARENT)
-                        .add_stop(1.0, theme.extended_palette().background.base.color),
-                )
-            } else {
-                iced::Gradient::Linear(
-                    Linear::new(Radians::PI)
-                        .add_stop(
-                            0.0,
-                            theme
-                                .extended_palette()
-                                .background
-                                .base
-                                .color
-                                .scale_alpha(0.5),
-                        )
-                        .add_stop(
-                            0.4,
-                            theme
-                                .extended_palette()
-                                .background
-                                .base
-                                .color
-                                .scale_alpha(0.7),
-                        )
-                        .add_stop(1.0, theme.extended_palette().background.base.color),
-                )
-            }))
-        })
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .align_y(Alignment::End)
-        .align_x(Alignment::Center)
-        .into()
-}
+// pub fn faded_overlay<'a, Message: 'a>(
+//     content: impl Into<Element<'a, Message>>,
+//     minimize_overlay: bool,
+// ) -> Element<'a, Message> {
+//     container(content)
+//         .style(move |theme: &iced::Theme| {
+//             container::background(Background::Gradient(if minimize_overlay {
+//                 iced::Gradient::Linear(
+//                     Linear::new(Radians::PI)
+//                         .add_stop(0.0, Color::TRANSPARENT)
+//                         .add_stop(0.4, Color::TRANSPARENT)
+//                         .add_stop(1.0, theme.extended_palette().background.base.color),
+//                 )
+//             } else {
+//                 iced::Gradient::Linear(
+//                     Linear::new(Radians::PI)
+//                         .add_stop(
+//                             0.0,
+//                             theme
+//                                 .extended_palette()
+//                                 .background
+//                                 .base
+//                                 .color
+//                                 .scale_alpha(0.5),
+//                         )
+//                         .add_stop(
+//                             0.4,
+//                             theme
+//                                 .extended_palette()
+//                                 .background
+//                                 .base
+//                                 .color
+//                                 .scale_alpha(0.7),
+//                         )
+//                         .add_stop(1.0, theme.extended_palette().background.base.color),
+//                 )
+//             }))
+//         })
+//         .width(Length::Fill)
+//         .height(Length::Fill)
+//         .align_y(Alignment::End)
+//         .align_x(Alignment::Center)
+//         .into()
+// }
 
 pub fn title_overlay<'a, Message: 'a>(
     content: impl Into<Element<'a, Message>>,

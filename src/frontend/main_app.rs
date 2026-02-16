@@ -8,9 +8,10 @@ mod animations;
 mod capture_photos;
 mod capture_photos_prepare;
 mod email_entry;
-// mod emailing;
+mod emailing;
 mod pick_strip;
 mod preview;
+mod print_pending;
 mod rendering;
 mod status_overlay;
 
@@ -22,14 +23,17 @@ enum MainAppPage {
     Rendering(rendering::Rendering),
     PickStrip(pick_strip::PickStrip),
     EmailEntry(email_entry::EmailEntry),
-    // Emailing(Emailing),
-    // StudentIDEntry(StudentIDEntry),
+    PrintPending(print_pending::PrintPending),
+    Emailing(emailing::Emailing),
 }
 
 #[derive(Debug, Clone)]
 pub enum MainAppMessage {
     OnRendered(Result<Vec<image::RgbaImage>, String>),
     OnUploaded(Result<crate::backend::storage::StorageHandle, String>),
+    OnPrintWaitFinish,
+    OnPrintFinish(Result<(), String>),
+    OnEmailed(Result<(), String>),
 
     CameraFeed(super::camera_feed::CameraMessage),
 
@@ -38,10 +42,9 @@ pub enum MainAppMessage {
     CapturePhotos(capture_photos::CapturePhotosMessage),
     Rendering(rendering::RenderingMessage),
     PickStrip(pick_strip::PickStripMessage),
+    PrintPending(print_pending::PrintPendingMessage),
     EmailEntry(email_entry::EmailEntryMessage),
-    // PaymentRequired(PaymentRequiredMessage),
-    // Emailing(EmailingMessage),
-    // RenderedPreview(RenderedPreviewMessage),
+    Emailing(emailing::EmailingMessage),
 }
 
 #[derive(Debug)]
@@ -56,6 +59,7 @@ pub struct Session {
     captured_photos: Vec<RgbaImage>,
     selected_strip: Option<usize>,
     strips: Option<Vec<RgbaImage>>,
+    storage_handle: Option<crate::backend::storage::StorageHandle>,
 }
 
 #[derive(Debug)]
@@ -128,6 +132,7 @@ impl MainApp {
             MainAppMessage::OnUploaded(result) => match result {
                 Ok(handle) => {
                     log::debug!("Successfully uploaded strip with handle {:?}", handle);
+                    self.session.storage_handle = Some(handle.clone());
                     if let MainAppPage::EmailEntry(email_entry) = &mut self.page {
                         email_entry.on_storage_finish(handle);
                     }
@@ -135,6 +140,38 @@ impl MainApp {
                 }
                 Err(err) => {
                     log::error!("Error uploading strip: {:?}", err);
+                    todo!("show error to user");
+                    MainAppAction::None
+                }
+            },
+            MainAppMessage::OnPrintWaitFinish => {
+                if let MainAppPage::PrintPending(print_pending) = &mut self.page {
+                    print_pending.finish();
+                }
+                MainAppAction::None
+            }
+            MainAppMessage::OnPrintFinish(result) => match result {
+                Ok(()) => {
+                    log::info!("Successfully finished printing strip");
+                    MainAppAction::None
+                }
+                Err(err) => {
+                    log::warn!("Error printing strip: {:?}", err);
+                    // could have been printing previous session's strip, so
+                    // maybe only show a small icon?
+                    MainAppAction::None
+                }
+            },
+            MainAppMessage::OnEmailed(result) => match result {
+                Ok(()) => {
+                    log::info!("Successfully sent email");
+                    if let MainAppPage::Emailing(emailing) = &mut self.page {
+                        emailing.finish();
+                    }
+                    MainAppAction::None
+                }
+                Err(err) => {
+                    log::error!("Error sending email: {:?}", err);
                     todo!("show error to user");
                     MainAppAction::None
                 }
@@ -232,32 +269,53 @@ impl MainApp {
                             let strip = self.session.strips.as_ref().expect("no strips rendered")
                                 [selection]
                                 .clone();
-                            let (email_entry, email_entry_task) = email_entry::EmailEntry::new(
-                                iced::widget::image::Handle::from_rgba(
-                                    strip.width(),
-                                    strip.height(),
-                                    strip.clone().into_raw(),
-                                ),
-                                self.manager.clone(),
-                            );
-                            self.page = MainAppPage::EmailEntry(email_entry);
+
+                            // upload
                             let manager = self.manager.clone();
                             let photos = self.session.captured_photos.clone();
-                            MainAppAction::Task(iced::Task::batch([
-                                email_entry_task.map(MainAppMessage::EmailEntry),
-                                iced::Task::perform(
+                            let upload_strip = strip.clone();
+                            let upload_task = iced::Task::perform(
+                                async move {
+                                    // Start uploading the selected strip immediately
+                                    manager
+                                        .storage_manager
+                                        .store(upload_strip, photos)
+                                        .await
+                                        .map_err(|err| {
+                                            log::error!("Failed to upload strip: {:?}", err);
+                                            err.to_string()
+                                        })
+                                },
+                                MainAppMessage::OnUploaded,
+                            );
+
+                            // if there's a printer, wait for it
+                            if let Some(printer_manager) = self.manager.printer_manager.clone() {
+                                self.page =
+                                    MainAppPage::PrintPending(print_pending::PrintPending::new());
+                                let print_task = iced::Task::perform(
                                     async move {
-                                        // Start uploading the selected strip immediately
-                                        manager.storage_manager.store(strip, photos).await.map_err(
-                                            |err| {
-                                                log::error!("Failed to upload strip: {:?}", err);
-                                                err.to_string()
-                                            },
-                                        )
+                                        printer_manager.wait().await;
                                     },
-                                    MainAppMessage::OnUploaded,
-                                ),
-                            ]))
+                                    |_| MainAppMessage::OnPrintWaitFinish,
+                                );
+                                MainAppAction::Task(iced::Task::batch([print_task, upload_task]))
+                            } else {
+                                let (email_entry, email_entry_task) = email_entry::EmailEntry::new(
+                                    iced::widget::image::Handle::from_rgba(
+                                        strip.width(),
+                                        strip.height(),
+                                        strip.clone().into_raw(),
+                                    ),
+                                    self.manager.clone(),
+                                    self.session.storage_handle.clone(),
+                                );
+                                self.page = MainAppPage::EmailEntry(email_entry);
+                                MainAppAction::Task(iced::Task::batch([
+                                    email_entry_task.map(MainAppMessage::EmailEntry),
+                                    upload_task,
+                                ]))
+                            }
                         }
                         pick_strip::PickStripAction::Task(task) => {
                             MainAppAction::Task(task.map(MainAppMessage::PickStrip))
@@ -268,11 +326,80 @@ impl MainApp {
                     MainAppAction::None
                 }
             }
+            MainAppMessage::PrintPending(message) => {
+                if let MainAppPage::PrintPending(print_pending) = &mut self.page {
+                    match print_pending.update(message) {
+                        print_pending::PrintPendingAction::Complete => {
+                            let strip = self.session.strips.as_ref().expect("no strips rendered")
+                                [self.session.selected_strip.expect("no strip selected")]
+                            .clone();
+                            let (email_entry, email_entry_task) = email_entry::EmailEntry::new(
+                                iced::widget::image::Handle::from_rgba(
+                                    strip.width(),
+                                    strip.height(),
+                                    strip.clone().into_raw(),
+                                ),
+                                self.manager.clone(),
+                                self.session.storage_handle.clone(),
+                            );
+                            self.page = MainAppPage::EmailEntry(email_entry);
+
+                            let printer_manager = self
+                                .manager
+                                .printer_manager
+                                .clone()
+                                .expect("no printer manager");
+                            let print_task = iced::Task::perform(
+                                async move {
+                                    printer_manager.print(strip).await.map_err(|err| {
+                                        log::error!("Failed to print strip: {:?}", err);
+                                        err.to_string()
+                                    })
+                                },
+                                MainAppMessage::OnPrintFinish,
+                            );
+
+                            MainAppAction::Task(iced::Task::batch([
+                                print_task,
+                                email_entry_task.map(MainAppMessage::EmailEntry),
+                            ]))
+                        }
+                        print_pending::PrintPendingAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::PrintPending))
+                        }
+                        print_pending::PrintPendingAction::None => MainAppAction::None,
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            }
             MainAppMessage::EmailEntry(message) => {
                 if let MainAppPage::EmailEntry(email_entry) = &mut self.page {
                     match email_entry.update(message) {
                         email_entry::EmailEntryAction::Submit { emails } => {
-                            todo!("handle email entry completion")
+                            log::debug!("User submitted emails: {:?}", emails);
+                            let storage_handle = self
+                                .session
+                                .storage_handle
+                                .clone()
+                                .expect("no storage handle");
+                            self.page = MainAppPage::Emailing(emailing::Emailing::new());
+                            let manager = self.manager.clone();
+                            MainAppAction::Task(iced::Task::perform(
+                                async move {
+                                    manager
+                                        .email_manager
+                                        // TODO: make no email manager allowed
+                                        .expect("email managers are required for now")
+                                        .send_email(storage_handle, emails)
+                                        .await
+                                        .map_err(|err| {
+                                            log::error!("Failed to send email: {:?}", err);
+                                            err.to_string()
+                                        })
+                                },
+                                MainAppMessage::OnEmailed,
+                            ))
                         }
                         email_entry::EmailEntryAction::Task(task) => {
                             MainAppAction::Task(task.map(MainAppMessage::EmailEntry))
@@ -282,109 +409,24 @@ impl MainApp {
                 } else {
                     MainAppAction::None
                 }
-            } // MainAppMessage::Emailing(message) => {
-              //     if let MainAppPage::Emailing(emailing) = &mut self.page {
-              //         match emailing.update(message) {
-              //             emailing::EmailingAction::Complete => {
-              //                 todo!("handle emailing completion")
-              //             }
-              //             emailing::EmailingAction::Task(task) => {
-              //                 MainAppAction::Task(task.map(MainAppMessage::Emailing))
-              //             }
-              //             emailing::EmailingAction::None => MainAppAction::None,
-              //         }
-              //     } else {
-              //         MainAppAction::None
-              //     }
-              // MainAppMessage::CapturePhotos(msg) => match &mut self.page {
-              //     MainAppPage::CapturePhotos(capture_photos) => {
-              //         let task = capture_photos.update(msg, &mut self.captured_photos);
-
-              //         match task {
-              //             Some(CapturePhotosEffect::CaptureStill) => {
-              //                 Task::done(MainAppMessage::CaptureStill)
-              //             }
-              //             Some(CapturePhotosEffect::PhotosComplete { photos }) => {
-              //                 // Process captured photos
-              //                 self.previews.clear();
-              //                 for photo in &photos {
-              //                     self.previews.push(iced::widget::image::Handle::from_rgba(
-              //                         photo.width(),
-              //                         photo.height(),
-              //                         photo.as_raw().clone(),
-              //                     ));
-              //                 }
-
-              //                 let strip = render_take(photos.clone());
-              //                 let strip_handle = Handle::from_rgba(
-              //                     strip.width(),
-              //                     strip.height(),
-              //                     strip.as_raw().clone(),
-              //                 );
-
-              //                 let rendered_preview = RenderedPreview::new(strip_handle);
-              //                 self.page = MainAppPage::RenderedPreview(rendered_preview);
-
-              //                 let future = server_backend.upload_photo(strip.clone(), photos);
-              //                 Task::perform(future, |result| {
-              //                     MainAppMessage::UploadFinished(result.map_err(|x| x.to_string()))
-              //                 })
-              //             }
-              //             None => Task::none(),
-              //         }
-              //     }
-              //     _ => Task::none(),
-              // },
-              // MainAppMessage::RenderedPreview(msg) => match &mut self.page {
-              //     MainAppPage::RenderedPreview(rendered_preview) => {
-              //         let task = rendered_preview.update(msg);
-
-              //         match task {
-              //             Some(RenderedPreviewEffect::Complete) => {
-              //                 // let email_entry =
-              //                 //     EmailEntry::new(rendered_preview.strip_handle.clone());
-              //                 let email_entry = todo!();
-              //                 self.page = MainAppPage::EmailEntry(email_entry);
-              //                 iced::widget::text_input::focus("email_input")
-              //             }
-              //             None => Task::none(),
-              //         }
-              //     }
-              //     _ => Task::none(),
-              // },
-              // MainAppMessage::Emailing(msg) => match &mut self.page {
-              //     MainAppPage::Emailing(emailing) => {
-              //         let task = emailing.update(msg);
-
-              //         match task {
-              //             Some(EmailingEffect::Complete) => {
-              //                 self.page = MainAppPage::PaymentRequired(PaymentRequired::new());
-              //                 Task::none()
-              //             }
-              //             None => Task::none(),
-              //         }
-              //     }
-              //     _ => Task::none(),
-              // },
-              // MainAppMessage::EmailFinished(result) => {
-              //     log::debug!("Email result received: {:?}", result);
-              //     match &mut self.page {
-              //         MainAppPage::Emailing(emailing) => match result {
-              //             Ok(_) => {
-              //                 emailing.finish();
-              //                 Task::none()
-              //             }
-              //             Err(err) => {
-              //                 self.page = MainAppPage::PaymentRequired(PaymentRequired::with_error(
-              //                     format!("Failed to email photos: {}", err),
-              //                 ));
-              //                 log::error!("Error emailing photos: {}", err);
-              //                 Task::none()
-              //             }
-              //         },
-              //         _ => Task::none(),
-              //     }
-              // }
+            }
+            MainAppMessage::Emailing(message) => {
+                if let MainAppPage::Emailing(emailing) = &mut self.page {
+                    match emailing.update(message) {
+                        emailing::EmailingAction::Complete => {
+                            self.page = MainAppPage::Preview(preview::Preview::new());
+                            self.session = Session::default();
+                            MainAppAction::None
+                        }
+                        emailing::EmailingAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::Emailing))
+                        }
+                        emailing::EmailingAction::None => MainAppAction::None,
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            }
         }
     }
 
@@ -407,9 +449,15 @@ impl MainApp {
                 MainAppPage::PickStrip(pick_strip) => {
                     pick_strip.subscription().map(MainAppMessage::PickStrip)
                 }
+                MainAppPage::PrintPending(print_pending) => print_pending
+                    .subscription()
+                    .map(MainAppMessage::PrintPending),
                 MainAppPage::EmailEntry(email_entry) => {
                     email_entry.subscription().map(MainAppMessage::EmailEntry)
-                } // MainAppPage::Emailing(emailing) => emailing.subscription().map(MainAppMessage::Emailing),
+                }
+                MainAppPage::Emailing(emailing) => {
+                    emailing.subscription().map(MainAppMessage::Emailing)
+                }
             },
         ])
     }
@@ -445,9 +493,13 @@ impl MainApp {
                 MainAppPage::PickStrip(pick_strip) => {
                     pick_strip.view().map(MainAppMessage::PickStrip)
                 }
+                MainAppPage::PrintPending(print_pending) => {
+                    print_pending.view().map(MainAppMessage::PrintPending)
+                }
                 MainAppPage::EmailEntry(email_entry) => {
-                    email_entry.view().map(MainAppMessage::EmailEntry).into()
-                } // MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
+                    email_entry.view().map(MainAppMessage::EmailEntry)
+                }
+                MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
             },
         ])
         .into()

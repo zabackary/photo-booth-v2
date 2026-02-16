@@ -50,18 +50,20 @@ impl EmailEntry {
     pub fn new(
         strip_handle: iced::widget::image::Handle,
         manager: crate::backend::manager::BackendManager,
+        storage_handle: Option<crate::backend::storage::StorageHandle>,
     ) -> (Self, iced::Task<EmailEntryMessage>) {
-        (
-            Self {
-                emails: vec![String::new()],
-                email_validation_triggered: false,
-                show_qr_code: true,
-                qr_code_data: None,
-                strip_handle,
-                manager,
-            },
-            iced::widget::operation::focus(EMAIL_INPUT_ID.clone()),
-        )
+        let mut new = Self {
+            emails: vec![String::new()],
+            email_validation_triggered: false,
+            show_qr_code: true,
+            qr_code_data: None,
+            strip_handle,
+            manager,
+        };
+        if let Some(storage_handle) = storage_handle {
+            new.on_storage_finish(storage_handle);
+        }
+        (new, iced::widget::operation::focus(EMAIL_INPUT_ID.clone()))
     }
 
     pub fn on_storage_finish(&mut self, storage_handle: crate::backend::storage::StorageHandle) {

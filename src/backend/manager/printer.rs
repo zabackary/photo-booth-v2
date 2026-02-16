@@ -135,24 +135,19 @@ impl PrinterManager {
     pub fn preprocess_photo(&self, photo: image::RgbImage) -> image::RgbImage {
         let config = self.config.clone();
 
-        let image = if config.auto_format {
-            // if the photo's aspect ratio is skinnier than half of the smaller
-            // aspect ratio of the canvas, then we'll use a "strip" format where
-            // we duplicate the photo twice and put them side by side to fill
-            // the canvas in order to print out two copies.
-            let photo_aspect_ratio = photo.width() as f32 / photo.height() as f32;
-            let canvas_aspect_ratio =
-                config.horizontal_resolution as f32 / config.vertical_resolution as f32;
-            if photo_aspect_ratio < canvas_aspect_ratio / 2.0 {
+        // Step 1: Optionally convert into a "strip" by duplicating the image
+        // horizontally or vertically when the photo is very skinny/wide.
+        let mut work = if config.auto_format {
+            let photo_ar = photo.width() as f32 / photo.height() as f32;
+            let canvas_ar = config.horizontal_resolution as f32 / config.vertical_resolution as f32;
+            if photo_ar < canvas_ar / 2.0 {
+                // very skinny: make a vertical strip duplicated side-by-side
                 let mut strip = image::RgbImage::new(photo.width() * 2, photo.height());
                 image::imageops::overlay(&mut strip, &photo, 0, 0);
                 image::imageops::overlay(&mut strip, &photo, photo.width() as i64, 0);
                 strip
-            } else if f32::recip(photo_aspect_ratio) < f32::recip(canvas_aspect_ratio) / 2.0 {
-                // Similarly, if the photo's aspect ratio is wider than half of the smaller
-                // aspect ratio of the canvas, then we'll use a "strip" format where
-                // we duplicate the photo twice and put them on top of each other to fill
-                // the canvas in order to print out two copies.
+            } else if (1.0 / photo_ar) < (1.0 / canvas_ar) / 2.0 {
+                // very wide: duplicate top/bottom
                 let mut strip = image::RgbImage::new(photo.width(), photo.height() * 2);
                 image::imageops::overlay(&mut strip, &photo, 0, 0);
                 image::imageops::overlay(&mut strip, &photo, 0, photo.height() as i64);
@@ -164,52 +159,58 @@ impl PrinterManager {
             photo
         };
 
-        // Flip the image if necessary and enlarge it to fit without cropping
-        let (new_width, new_height) = if image.width() * config.vertical_resolution
-            > config.horizontal_resolution * image.height()
-        {
-            // Image is wider than canvas, fit to height
-            let new_width = image.width() * config.vertical_resolution / image.height();
-            (new_width, config.vertical_resolution)
-        } else {
-            // Image is taller than canvas, fit to width
-            let new_height = image.height() * config.horizontal_resolution / image.width();
-            (config.horizontal_resolution, new_height)
-        };
-        let resized = image::imageops::resize(
-            &image,
-            new_width,
-            new_height,
-            image::imageops::FilterType::Lanczos3,
-        );
-        // Center the resized image on the canvas
-        let mut canvas = image::RgbImage::from_pixel(
-            config.horizontal_resolution,
-            config.vertical_resolution,
-            image::Rgb([255, 255, 255]),
-        );
-        let offset_x = (canvas.width() - resized.width()) / 2;
-        let offset_y = (canvas.height() - resized.height()) / 2;
-        image::imageops::overlay(&mut canvas, &resized, offset_x as i64, offset_y as i64);
+        // Canvas target size
+        let canvas_w = config.horizontal_resolution as u32;
+        let canvas_h = config.vertical_resolution as u32;
 
-        // Final step: resize according to scale factor
-        let scaled_width = (config.horizontal_resolution as f32 * config.scale / 100.0) as u32;
-        let scaled_height = (config.vertical_resolution as f32 * config.scale / 100.0) as u32;
+        // Step 2: Choose orientation (rotated or not) that gives the largest
+        // scale-to-fit factor so the image fills the canvas as much as possible.
+        let (w, h) = (work.width() as f32, work.height() as f32);
+        let scale_no_rot = (canvas_w as f32 / w).min(canvas_h as f32 / h);
+        let scale_rot = (canvas_w as f32 / h).min(canvas_h as f32 / w);
+        let rotate = scale_rot > scale_no_rot;
+        if rotate {
+            work = image::imageops::rotate90(&work);
+        }
+
+        // Step 3: Resize the work image to be as large as possible within the
+        // canvas while preserving aspect ratio.
+        let img_w = work.width() as f32;
+        let img_h = work.height() as f32;
+        let scale = (canvas_w as f32 / img_w).min(canvas_h as f32 / img_h);
+        let target_w = (img_w * scale).round().max(1.0) as u32;
+        let target_h = (img_h * scale).round().max(1.0) as u32;
         let resized = image::imageops::resize(
-            &canvas,
-            scaled_width,
-            scaled_height,
+            &work,
+            target_w,
+            target_h,
             image::imageops::FilterType::Lanczos3,
         );
-        // Center the resized image on the canvas
-        let mut final_image = image::RgbImage::from_pixel(
-            config.horizontal_resolution,
-            config.vertical_resolution,
-            image::Rgb([255, 255, 255]),
+
+        // Center the resized image on a white canvas of the configured size
+        let mut canvas =
+            image::RgbImage::from_pixel(canvas_w, canvas_h, image::Rgb([255, 255, 255]));
+        let offset_x = (canvas_w as i64 - resized.width() as i64) / 2;
+        let offset_y = (canvas_h as i64 - resized.height() as i64) / 2;
+        image::imageops::overlay(&mut canvas, &resized, offset_x, offset_y);
+
+        // Step 4: Apply final scale factor (percent) and center that result on
+        // a canvas of the configured size. This preserves the final output
+        // resolution while simulating a physical scale change.
+        let scaled_w = ((canvas_w as f32) * config.scale / 100.0).round().max(1.0) as u32;
+        let scaled_h = ((canvas_h as f32) * config.scale / 100.0).round().max(1.0) as u32;
+        let scaled = image::imageops::resize(
+            &canvas,
+            scaled_w,
+            scaled_h,
+            image::imageops::FilterType::Lanczos3,
         );
-        let offset_x = (config.horizontal_resolution - scaled_width) / 2;
-        let offset_y = (config.vertical_resolution - scaled_height) / 2;
-        image::imageops::overlay(&mut final_image, &resized, offset_x as i64, offset_y as i64);
+        let mut final_image =
+            image::RgbImage::from_pixel(canvas_w, canvas_h, image::Rgb([255, 255, 255]));
+        let off_x = (canvas_w as i64 - scaled.width() as i64) / 2;
+        let off_y = (canvas_h as i64 - scaled.height() as i64) / 2;
+        image::imageops::overlay(&mut final_image, &scaled, off_x, off_y);
+
         final_image
     }
 }
