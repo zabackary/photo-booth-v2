@@ -103,6 +103,7 @@ impl PrinterManager {
 
     /// Print a photo
     pub async fn print(&self, photo: image::RgbaImage) -> Result<(), anyhow::Error> {
+        let backend = self.backend.lock().await;
         let photo: image::RgbImage = photo.convert();
         let mut printer = self.current_printer.lock().await;
         let processed_photo = self.preprocess_photo(photo);
@@ -113,7 +114,7 @@ impl PrinterManager {
                     log::error!("Failed to print photo: {:?}", e);
                     *self.reconnecting.lock().unwrap() = true;
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    match self.backend.lock().await.open_default().await {
+                    match backend.open_default().await {
                         Ok(Some(new_printer)) => {
                             *printer = new_printer;
                             *self.reconnecting.lock().unwrap() = false;
@@ -128,6 +129,7 @@ impl PrinterManager {
                 }
             }
         }
+        std::mem::drop(backend); // hold on to it until here
         Ok(())
     }
 
