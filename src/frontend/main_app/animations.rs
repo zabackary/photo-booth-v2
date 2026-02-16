@@ -4,6 +4,6 @@ pub mod countdown_circle;
 pub mod ready;
 
 #[cfg(feature = "fast_animations")]
-const LENGTH_DIVISOR: u64 = 10;
+pub const LENGTH_DIVISOR: u64 = 10;
 #[cfg(not(feature = "fast_animations"))]
-const LENGTH_DIVISOR: u64 = 1;
+pub const LENGTH_DIVISOR: u64 = 1;

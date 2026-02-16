@@ -62,7 +62,6 @@ impl Setup {
                 SetupAction::StartMainApp { manager }
             }
             SetupMessage::BackendInitialized(Err(err)) => {
-                log::error!("Failed to initialize backends: {}", err);
                 self.error = Some(err);
                 SetupAction::None
             }

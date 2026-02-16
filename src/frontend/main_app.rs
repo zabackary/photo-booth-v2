@@ -11,6 +11,8 @@ mod capture_photos_prepare;
 // mod emailing;
 mod preview;
 // mod rendered_preview;
+mod pick_strip;
+mod rendering;
 mod status_overlay;
 
 #[derive(Debug)]
@@ -18,6 +20,8 @@ enum MainAppPage {
     Preview(preview::Preview),
     CapturePhotosPrepare(capture_photos_prepare::CapturePhotosPrepare),
     CapturePhotos(capture_photos::CapturePhotos),
+    Rendering(rendering::Rendering),
+    PickStrip(pick_strip::PickStrip),
     // RenderedPreview(RenderedPreview),
     // EmailEntry(EmailEntry),
     // Emailing(Emailing),
@@ -26,14 +30,16 @@ enum MainAppPage {
 
 #[derive(Debug, Clone)]
 pub enum MainAppMessage {
+    OnRendered(Result<Vec<image::RgbaImage>, String>),
+    OnUploaded(Result<crate::backend::storage::StorageHandle, String>),
+
     CameraFeed(super::camera_feed::CameraMessage),
 
-    // UploadFinished(Result<crate::backend::storage::StorageHandle, String>),
-    // EmailFinished(Result<(), String>),
-    // PrintFinished(Result<(), String>),
     Preview(preview::PreviewMessage),
     CapturePhotosPrepare(capture_photos_prepare::CapturePhotosPrepareMessage),
     CapturePhotos(capture_photos::CapturePhotosMessage),
+    Rendering(rendering::RenderingMessage),
+    PickStrip(pick_strip::PickStripMessage),
     // EmailEntry(EmailEntryMessage),
     // PaymentRequired(PaymentRequiredMessage),
     // Emailing(EmailingMessage),
@@ -51,7 +57,6 @@ pub enum MainAppAction {
 pub struct Session {
     captured_photos: Vec<RgbaImage>,
     strips: Option<Vec<RgbaImage>>,
-    strip_handles: Option<Vec<iced::widget::image::Handle>>,
 }
 
 #[derive(Debug)]
@@ -107,119 +112,24 @@ impl MainApp {
         );
 
         match message {
+            MainAppMessage::OnRendered(result) => match result {
+                Ok(strips) => {
+                    self.session.strips = Some(strips.clone());
+                    if let MainAppPage::Rendering(rendering) = &mut self.page {
+                        rendering.finish();
+                    }
+                    MainAppAction::None
+                }
+                Err(err) => {
+                    log::error!("Error rendering photos: {:?}", err);
+                    todo!("show error to user");
+                    MainAppAction::None
+                }
+            },
+            MainAppMessage::OnUploaded(result) => todo!(),
             MainAppMessage::CameraFeed(msg) => {
                 MainAppAction::Task(self.feed.update(msg).map(MainAppMessage::CameraFeed))
             }
-            // MainAppMessage::Tick => match &mut self.page {
-            //     MainAppPage::CapturePhotosPrepare { ready_timeline } => {
-            //         if ready_timeline.update().is_completed() {
-            //             self.page = MainAppPage::CapturePhotos(CapturePhotos::new());
-            //         };
-            //         Task::none()
-            //     }
-            //     MainAppPage::CapturePhotos(_capture_photos) => {
-            //         Task::done(MainAppMessage::CapturePhotos(CapturePhotosMessage::Tick))
-            //     }
-            //     MainAppPage::RenderedPreview(_rendered_preview) => Task::done(
-            //         MainAppMessage::RenderedPreview(RenderedPreviewMessage::Tick),
-            //     ),
-            //     MainAppPage::Emailing(emailing) => {
-            //         if let Some(effect) = emailing.update(EmailingMessage::Tick) {
-            //             match effect {
-            //                 EmailingEffect::Complete => {
-            //                     self.page = MainAppPage::PaymentRequired(PaymentRequired::new());
-            //                 }
-            //             }
-            //         }
-            //         Task::none()
-            //     }
-            //     _ => Task::none(),
-            // },
-            // MainAppMessage::UploadFinished(result) => {
-            //     log::debug!("Upload result received: {:?}", result);
-            //     match result {
-            //         Ok(res) => {
-            //             // Update email entry with upload data
-            //             if let MainAppPage::EmailEntry(ref mut email_entry) = self.page {
-            //                 // Store the actual upload handle for later use
-            //                 email_entry.set_upload_handle(res.clone());
-            //                 email_entry.set_qr_code_url(server_backend.get_link(res));
-            //             }
-            //             Task::none()
-            //         }
-            //         Err(err) => {
-            //             self.page = MainAppPage::PaymentRequired(PaymentRequired::with_error(
-            //                 format!("Failed to upload photos: {}", err),
-            //             ));
-            //             log::error!("Error uploading photos: {}", err);
-            //             Task::none()
-            //         }
-            //     }
-            // }
-            // MainAppMessage::KeyReleased(key) => {
-            //     log::debug!("Key released: {:?}", key);
-            //     match &mut self.page {
-            //         MainAppPage::PaymentRequired(_) => match key {
-            //             KeyMessage::Up => Task::none(),
-            //             KeyMessage::Down => Task::none(),
-            //             KeyMessage::Space => {
-            //                 self.page = MainAppPage::Preview(Preview::new());
-            //                 Task::none()
-            //             }
-            //             KeyMessage::Escape => iced::widget::text_input::focus("email_input"),
-            //         },
-            //         MainAppPage::Preview(_) => {
-            //             self.page = MainAppPage::CapturePhotosPrepare {
-            //                 ready_timeline: animations::ready::animation().begin_animation(),
-            //             };
-            //             Task::none()
-            //         }
-            //         MainAppPage::RenderedPreview(_) => Task::done(MainAppMessage::RenderedPreview(
-            //             RenderedPreviewMessage::Skip,
-            //         )),
-            //         MainAppPage::EmailEntry(_) => iced::widget::text_input::focus("email_input"),
-            //         MainAppPage::StudentIDEntry(_) => {
-            //             iced::widget::text_input::focus("student_id_input")
-            //         }
-            //         _ => Task::none(),
-            //     }
-            // }
-            // MainAppMessage::OtherKeyPress => match self.page {
-            //     MainAppPage::EmailEntry(_) => iced::widget::text_input::focus("email_input"),
-            //     MainAppPage::StudentIDEntry(_) => {
-            //         iced::widget::text_input::focus("student_id_input")
-            //     }
-            //     _ => Task::none(),
-            // },
-            // MainAppMessage::EmailEntry(msg) => match &mut self.page {
-            //     MainAppPage::EmailEntry(email_entry) => {
-            //         let effect = email_entry.update(msg);
-
-            //         match effect {
-            //             Some(EmailEntryEffect::Submit {
-            //                 emails,
-            //                 // upload_handle,
-            //             }) => {
-            //                 let emailing = Emailing::new();
-            //                 self.page = MainAppPage::Emailing(emailing);
-            //                 log::trace!("Sending email with photos...");
-            //                 Task::perform(
-            //                     server_backend.send_email(
-            //                         upload_handle,
-            //                         emails,
-            //                         None,
-            //                         iced::theme::palette::Extended::generate(PALETTE),
-            //                     ),
-            //                     |result| {
-            //                         MainAppMessage::EmailFinished(result.map_err(|x| x.to_string()))
-            //                     },
-            //                 )
-            //             }
-            //             None => Task::none(),
-            //         }
-            //     }
-            //     _ => Task::none(),
-            // },
             MainAppMessage::Preview(message) => {
                 if let MainAppPage::Preview(preview) = &mut self.page {
                     match preview.update(message) {
@@ -264,30 +174,54 @@ impl MainApp {
                 if let MainAppPage::CapturePhotos(capture_photos) = &mut self.page {
                     match capture_photos.update(message) {
                         capture_photos::CapturePhotosAction::PhotosComplete { photos } => {
-                            // TODO: process captured photos into strips and move to preview page
-
-                            // // Process captured photos
-                            // self.session.captured_photos = photos;
-                            // let strip = crate::backend::photo_processing::render_take(
-                            //     self.session.captured_photos.clone(),
-                            // );
-                            // self.session.strips = Some(vec![strip]);
-                            // let strip_handle = iced::widget::image::Handle::from_rgba(
-                            //     self.session.strips.as_ref().unwrap()[0].width(),
-                            //     self.session.strips.as_ref().unwrap()[0].height(),
-                            //     self.session.strips.as_ref().unwrap()[0].as_raw().clone(),
-                            // );
-                            // self.session.strip_handles =
-                            //     Some(vec![strip_handle.clone()]);
-
-                            // Move to rendered preview page
-                            // self.page = MainAppPage::RenderedPreview(RenderedPreview::new(strip_handle));
-                            MainAppAction::None
+                            self.session.captured_photos = photos.clone();
+                            self.page = MainAppPage::Rendering(rendering::Rendering::new());
+                            let renderer = self.manager.renderer_manager.clone();
+                            MainAppAction::Task(iced::Task::perform(
+                                async move { renderer.render(photos).await },
+                                |result| {
+                                    MainAppMessage::OnRendered(result.map_err(|x| x.to_string()))
+                                },
+                            ))
                         }
                         capture_photos::CapturePhotosAction::Task(task) => {
                             MainAppAction::Task(task.map(MainAppMessage::CapturePhotos))
                         }
                         capture_photos::CapturePhotosAction::None => MainAppAction::None,
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            }
+            MainAppMessage::Rendering(message) => {
+                if let MainAppPage::Rendering(rendering) = &mut self.page {
+                    match rendering.update(message) {
+                        rendering::RenderingAction::Complete => {
+                            self.page = MainAppPage::PickStrip(pick_strip::PickStrip::new(
+                                self.session.strips.clone().expect("no strips rendered"),
+                            ));
+                            MainAppAction::None
+                        }
+                        rendering::RenderingAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::Rendering))
+                        }
+                        rendering::RenderingAction::None => MainAppAction::None,
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            }
+            MainAppMessage::PickStrip(message) => {
+                if let MainAppPage::PickStrip(pick_strip) = &mut self.page {
+                    match pick_strip.update(message) {
+                        pick_strip::PickStripAction::Complete { selection } => {
+                            log::info!("User selected strip {}", selection);
+                            todo!("handle strip selection")
+                        }
+                        pick_strip::PickStripAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::PickStrip))
+                        }
+                        pick_strip::PickStripAction::None => MainAppAction::None,
                     }
                 } else {
                     MainAppAction::None
@@ -397,7 +331,12 @@ impl MainApp {
                 MainAppPage::CapturePhotos(capture_photos) => capture_photos
                     .subscription()
                     .map(MainAppMessage::CapturePhotos),
-                _ => iced::Subscription::none(),
+                MainAppPage::Rendering(rendering) => {
+                    rendering.subscription().map(MainAppMessage::Rendering)
+                }
+                MainAppPage::PickStrip(pick_strip) => {
+                    pick_strip.subscription().map(MainAppMessage::PickStrip)
+                }
             },
         ])
     }
@@ -426,6 +365,12 @@ impl MainApp {
                     .map(MainAppMessage::CapturePhotosPrepare),
                 MainAppPage::CapturePhotos(capture_photos) => {
                     capture_photos.view().map(MainAppMessage::CapturePhotos)
+                }
+                MainAppPage::Rendering(rendering) => {
+                    rendering.view().map(MainAppMessage::Rendering)
+                }
+                MainAppPage::PickStrip(pick_strip) => {
+                    pick_strip.view().map(MainAppMessage::PickStrip)
                 } // MainAppPage::RenderedPreview(rendered_preview) => {
                   //     rendered_preview.view().map(MainAppMessage::RenderedPreview)
                   // }
