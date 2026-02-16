@@ -19,16 +19,75 @@
   },
   "renderer": {
     "type": "simple",
-    "templates": []
+    "templates": [
+      {
+        "imagePath": "./templates/assets/template.png",
+        "frames": [
+          {
+            "x": 134,
+            "y": 134,
+            "width": 540,
+            "height": 360
+          },
+          {
+            "x": 134,
+            "y": 1600,
+            "width": 540,
+            "height": 360
+          },
+          {
+            "x": 134,
+            "y": 3066,
+            "width": 540,
+            "height": 360
+          },
+          {
+            "x": 134,
+            "y": 4532,
+            "width": 540,
+            "height": 360
+          }
+        ]
+      },
+      {
+        "imagePath": "./templates/assets/template.png",
+        "frames": [
+          {
+            "x": 134,
+            "y": 134,
+            "width": 540,
+            "height": 360
+          },
+          {
+            "x": 134,
+            "y": 1600,
+            "width": 540,
+            "height": 360
+          },
+          {
+            "x": 134,
+            "y": 3066,
+            "width": 540,
+            "height": 360
+          },
+          {
+            "x": 134,
+            "y": 4532,
+            "width": 540,
+            "height": 360
+          }
+        ]
+      }
+    ]
   },
   "photosPerStrip": 4,
   "theme": {
-    "background": "#ffffff",
-    "text": "#000000",
-    "primary": "#0066cc",
-    "success": "#00cc00",
-    "danger": "#cc0000",
-    "warning": "#ffaa00"
+    "background": "#BBBDD5",
+    "text": "#FFF6DD",
+    "primary": "#000080",
+    "success": "#00FF00",
+    "danger": "#FF0000",
+    "warning": "#FFFF00"
   },
   "eventName": "My Photo Booth Event",
   "description": "Welcome to our photo booth!",
