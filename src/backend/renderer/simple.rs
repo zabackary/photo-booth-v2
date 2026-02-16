@@ -46,6 +46,14 @@ impl SimpleRendererBackend {
             };
             let photo =
                 image::imageops::resize(&photo, 540, 360, image::imageops::FilterType::Lanczos3);
+            dbg!(
+                x,
+                y,
+                frame.width,
+                frame.height,
+                photo.width(),
+                photo.height()
+            );
             strip.copy_from(&photo, x, y).with_context(|| {
                 format!("failed to copy photo into strip at position ({}, {})", x, y)
             })?;

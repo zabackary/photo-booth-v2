@@ -64,7 +64,10 @@ pub enum CameraBackendConfig {
     GPhoto2,
     /// The nokhwa camera backend, which uses the nokhwa library to connect to webcams
     #[cfg(feature = "camera_nokhwa")]
-    Nokhwa,
+    Nokhwa {
+        /// Whether to use the same webcam profile for both preview and capture
+        fast_capture: bool,
+    },
     /// A mock camera backend that simulates a camera for testing and development
     #[cfg(feature = "mock")]
     Mock,

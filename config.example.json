@@ -1,7 +1,8 @@
 {
   "camera": {
     "type": "nokhwa",
-    "previewAspectRatio": 1.5
+    "previewAspectRatio": 1.5,
+    "fastCapture": true
   },
   "printer": {
     "type": "mock",
@@ -21,7 +22,7 @@
     "type": "simple",
     "templates": [
       {
-        "imagePath": "./templates/assets/template.png",
+        "imagePath": "./assets/template.png",
         "frames": [
           {
             "x": 134,
@@ -50,7 +51,7 @@
         ]
       },
       {
-        "imagePath": "./templates/assets/template.png",
+        "imagePath": "./assets/template.png",
         "frames": [
           {
             "x": 134,

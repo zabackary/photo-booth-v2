@@ -8,7 +8,9 @@ use tokio::sync::oneshot;
 
 /// A camera backend using nokhwa to read from webcams
 #[derive(Debug, Clone, Copy)]
-pub struct NokhwaCameraBackend {}
+pub struct NokhwaCameraBackend {
+    fast_capture: bool,
+}
 
 async fn initialize_nokhwa() -> Result<(), anyhow::Error> {
     let (tx, rx) = oneshot::channel::<bool>();
@@ -27,17 +29,16 @@ async fn initialize_nokhwa() -> Result<(), anyhow::Error> {
         }
     });
 
-    Ok(rx
-        .await
+    rx.await
         .unwrap()
-        .then(|| ())
-        .with_context(|| "failed to initialize nokhwa camera backend")?)
+        .then_some(())
+        .with_context(|| "failed to initialize nokhwa camera backend")
 }
 
 impl NokhwaCameraBackend {
-    pub async fn new() -> Result<Self, anyhow::Error> {
+    pub async fn new(fast_capture: bool) -> Result<Self, anyhow::Error> {
         initialize_nokhwa().await?;
-        Ok(NokhwaCameraBackend {})
+        Ok(NokhwaCameraBackend { fast_capture })
     }
 }
 
@@ -48,7 +49,10 @@ impl super::CameraBackend for NokhwaCameraBackend {
         let handles: Vec<Box<dyn super::CameraBackendHandle>> = cameras
             .into_iter()
             .map(|info| {
-                Box::new(NokhwaCameraHandle { info }) as Box<dyn super::CameraBackendHandle>
+                Box::new(NokhwaCameraHandle {
+                    info,
+                    fast_capture: self.fast_capture,
+                }) as Box<dyn super::CameraBackendHandle>
             })
             .collect();
         Ok(handles)
@@ -62,13 +66,16 @@ impl super::CameraBackend for NokhwaCameraBackend {
             let integrated = info.human_name().to_lowercase().contains("integrated");
             (integrated, info.index().as_index().unwrap_or(0))
         });
-        Ok(default_camera.map(|info| Box::new(NokhwaCamera::new(info)) as Box<dyn super::Camera>))
+        Ok(default_camera.map(|info| {
+            Box::new(NokhwaCamera::new(info, self.fast_capture)) as Box<dyn super::Camera>
+        }))
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct NokhwaCameraHandle {
     info: CameraInfo,
+    fast_capture: bool,
 }
 
 impl std::fmt::Display for NokhwaCameraHandle {
@@ -79,7 +86,10 @@ impl std::fmt::Display for NokhwaCameraHandle {
 
 impl super::CameraBackendHandle for NokhwaCameraHandle {
     fn open(&self) -> std::result::Result<Box<dyn super::Camera>, anyhow::Error> {
-        Ok(Box::new(NokhwaCamera::new(self.info.clone())))
+        Ok(Box::new(NokhwaCamera::new(
+            self.info.clone(),
+            self.fast_capture,
+        )))
     }
 }
 
@@ -87,6 +97,7 @@ pub struct NokhwaCamera {
     info: CameraInfo,
     video_camera: Option<Camera>,
     still_camera: Option<Camera>,
+    fast_capture: bool,
 }
 
 impl std::fmt::Debug for NokhwaCamera {
@@ -102,17 +113,23 @@ impl std::fmt::Debug for NokhwaCamera {
 }
 
 impl NokhwaCamera {
-    fn new(info: CameraInfo) -> Self {
+    fn new(info: CameraInfo, fast_capture: bool) -> Self {
         NokhwaCamera {
             info,
             video_camera: None,
             still_camera: None,
+            fast_capture,
         }
     }
 }
 
 impl super::Camera for NokhwaCamera {
     fn frame_still(&mut self) -> Result<image::RgbaImage, anyhow::Error> {
+        if self.fast_capture {
+            // If fast_capture is enabled, we only use the video camera
+            // This means that the captured frame may worse
+            return self.frame_preview();
+        }
         if self.still_camera.is_none() {
             self.video_camera = None; // drop the fast-taking video camera
             let mut camera = Camera::new(
@@ -137,9 +154,11 @@ impl super::Camera for NokhwaCamera {
             self.still_camera = None; // drop the high-res still camera
             let mut camera = Camera::new(
                 self.info.index().clone(),
-                RequestedFormat::new::<RgbAFormat>(
-                    nokhwa::utils::RequestedFormatType::AbsoluteHighestFrameRate,
-                ),
+                RequestedFormat::new::<RgbAFormat>(if self.fast_capture {
+                    nokhwa::utils::RequestedFormatType::AbsoluteHighestResolution
+                } else {
+                    nokhwa::utils::RequestedFormatType::AbsoluteHighestFrameRate
+                }),
             )?;
             camera.open_stream()?;
             self.video_camera = Some(camera);

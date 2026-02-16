@@ -82,10 +82,10 @@ impl BackendManager {
                     as Box<dyn CameraBackend>
             }
             #[cfg(feature = "camera_nokhwa")]
-            crate::config::CameraBackendConfig::Nokhwa => {
-                Box::new(crate::backend::camera::nokhwa::NokhwaCameraBackend::new().await?)
-                    as Box<dyn CameraBackend>
-            }
+            crate::config::CameraBackendConfig::Nokhwa { fast_capture } => Box::new(
+                crate::backend::camera::nokhwa::NokhwaCameraBackend::new(fast_capture).await?,
+            )
+                as Box<dyn CameraBackend>,
             #[cfg(feature = "mock")]
             crate::config::CameraBackendConfig::Mock => {
                 Box::new(crate::backend::camera::mock::MockCameraBackend {})
