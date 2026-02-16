@@ -38,7 +38,7 @@ impl EmailManager {
     /// Whether the manager is busy sending an email
     ///
     /// Essentially, whether the mutex is currently locked.
-    pub async fn busy(&self) -> bool {
+    pub fn busy(&self) -> bool {
         self.0.try_lock().is_err()
     }
 

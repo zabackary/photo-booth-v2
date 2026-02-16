@@ -19,7 +19,7 @@ impl StorageManager {
     /// Whether the manager is busy storing a photo
     ///
     /// Essentially, whether the mutex is currently locked.
-    pub async fn busy(&self) -> bool {
+    pub fn busy(&self) -> bool {
         self.backend.try_lock().is_err()
     }
 

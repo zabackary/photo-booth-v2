@@ -17,7 +17,7 @@ impl RendererManager {
     /// Whether the manager is busy rendering a photo
     ///
     /// Essentially, whether the mutex is currently locked.
-    pub async fn busy(&self) -> bool {
+    pub fn busy(&self) -> bool {
         self.backend.try_lock().is_err()
     }
 
