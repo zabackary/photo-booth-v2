@@ -2,3 +2,4 @@
 service_account_key.json
 .env
 /.direnv
+config.json

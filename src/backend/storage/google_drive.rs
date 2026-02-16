@@ -51,13 +51,11 @@ impl super::StorageBackend for GoogleDriveStorageBackend {
     /// Creates a new folder within the specified folder in Google Drive,
     /// uploads the strip as strip.png, and uploads the individual photos as
     /// photo_1.png, photo_2.png, etc.
-    /// Uploads the emails in a newline-separated text file called emails.txt.
     async fn upload(
         &self,
         strip: RgbImage,
         photos: Vec<RgbImage>,
     ) -> Result<super::StorageHandle, anyhow::Error> {
-        // sleep(Duration::from_secs(4)).await;
         let token = self
             .auth_manager
             .token()

@@ -144,6 +144,7 @@ pub enum StorageConfig {
     #[cfg(feature = "storage_google_drive")]
     GoogleDrive {
         /// The ID of the Google Drive folder where photos and photo strips are saved
+        #[serde(rename = "folderId")]
         folder_id: String,
     },
     /// A storage backend that saves locally to disk.
