@@ -1,8 +1,6 @@
 use iced::{
     Alignment, Border, Color, Element, Length, Padding,
-    widget::{
-        button, column, container, horizontal_space, image, row, text, text_input, vertical_space,
-    },
+    widget::{button, column, container, image, row, space, text, text_input},
 };
 use regex::Regex;
 
@@ -11,6 +9,9 @@ use crate::frontend::{
     main_app::status_overlay,
     title_overlay::{full_title_overlay, supporting_text, title_text},
 };
+
+static EMAIL_INPUT_ID: std::sync::LazyLock<iced::widget::Id> =
+    std::sync::LazyLock::new(iced::widget::Id::unique);
 
 const QR_CODE_QUIET_ZONE: usize = 2;
 pub const QR_CODE_VERSION: iced::widget::qr_code::Version =
@@ -23,7 +24,8 @@ const EMAIL_REGEX: &str = r"^([a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+)@([a-zA-Z0-9](?:
 pub struct EmailEntry {
     emails: Vec<String>,
     email_validation_triggered: bool,
-    qr_code_data: Option<iced::widget::qr_code::Data>, // Store the QR code data directly
+    qr_code_data: Option<iced::widget::qr_code::Data>,
+    show_qr_code: bool,
     pub strip_handle: iced::widget::image::Handle,
 
     manager: crate::backend::manager::BackendManager,
@@ -33,34 +35,46 @@ pub struct EmailEntry {
 pub enum EmailEntryMessage {
     EmailInput(String),
     EmailSubmit,
+    StrayKeyPress,
 }
 
-#[derive(Debug, Clone)]
-pub enum EmailEntryEffect {
+#[derive(Debug)]
+#[allow(dead_code)]
+pub enum EmailEntryAction {
     Submit { emails: Vec<String> },
+    Task(iced::Task<EmailEntryMessage>),
+    None,
 }
 
 impl EmailEntry {
     pub fn new(
         strip_handle: iced::widget::image::Handle,
         manager: crate::backend::manager::BackendManager,
-    ) -> Self {
-        Self {
-            emails: vec![String::new()],
-            email_validation_triggered: false,
-            qr_code_data: None,
-            strip_handle,
-            manager,
-        }
+    ) -> (Self, iced::Task<EmailEntryMessage>) {
+        (
+            Self {
+                emails: vec![String::new()],
+                email_validation_triggered: false,
+                show_qr_code: true,
+                qr_code_data: None,
+                strip_handle,
+                manager,
+            },
+            iced::widget::operation::focus(EMAIL_INPUT_ID.clone()),
+        )
     }
 
-    pub fn set_qr_code_url(&mut self, url: String) {
-        self.qr_code_data = iced::widget::qr_code::Data::with_version(
-            &url,
-            QR_CODE_VERSION,
-            iced::widget::qr_code::ErrorCorrection::Medium,
-        )
-        .ok();
+    pub fn on_storage_finish(&mut self, storage_handle: crate::backend::storage::StorageHandle) {
+        if let Some(url) = storage_handle.strip_link() {
+            self.qr_code_data = iced::widget::qr_code::Data::with_version(
+                &url,
+                QR_CODE_VERSION,
+                iced::widget::qr_code::ErrorCorrection::Medium,
+            )
+            .ok();
+        } else {
+            self.show_qr_code = false;
+        }
     }
 
     pub fn get_emails(&self) -> Vec<String> {
@@ -71,35 +85,34 @@ impl EmailEntry {
             .collect()
     }
 
-    pub fn update(&mut self, message: EmailEntryMessage) -> Option<EmailEntryEffect> {
+    pub fn update(&mut self, message: EmailEntryMessage) -> EmailEntryAction {
         match message {
             EmailEntryMessage::EmailInput(input) => {
                 if let Some(first) = self.emails.get_mut(0) {
                     *first = input;
                 }
                 self.email_validation_triggered = false;
-                None
+                EmailEntryAction::None
             }
             EmailEntryMessage::EmailSubmit => {
                 let empty_string = String::new();
-                let current_email = self.emails.get(0).unwrap_or(&empty_string).trim();
+                let current_email = self.emails.first().unwrap_or(&empty_string).trim();
 
                 if current_email.is_empty() {
-                    // Ignore the submission if we haven't finished uploading
                     if self.manager.storage_manager.busy() {
-                        return None;
+                        // still uploading, can't finish yet
+                        return EmailEntryAction::None;
                     }
-
-                    // Submit with current emails (excluding empty ones)
+                    // Submit with current emails
                     let emails = self.get_emails();
-                    return Some(EmailEntryEffect::Submit { emails });
+                    return EmailEntryAction::Submit { emails };
                 }
 
                 // Validate email
                 let regex = Regex::new(EMAIL_REGEX).unwrap();
                 if !regex.is_match(current_email) {
                     self.email_validation_triggered = true;
-                    return None;
+                    return EmailEntryAction::None;
                 }
 
                 // Add email to list and clear input
@@ -107,30 +120,46 @@ impl EmailEntry {
                 self.emails[0] = String::new();
                 self.email_validation_triggered = false;
 
-                None
+                EmailEntryAction::None
+            }
+            EmailEntryMessage::StrayKeyPress => {
+                // refocus the input box
+                EmailEntryAction::Task(iced::widget::operation::focus(EMAIL_INPUT_ID.clone()))
             }
         }
     }
 
+    pub fn subscription(&self) -> iced::Subscription<EmailEntryMessage> {
+        iced::Subscription::batch([iced::keyboard::listen().filter_map(|event| {
+            if let iced::keyboard::Event::KeyPressed { .. } = event {
+                // a stray key press. let's refocus the input box
+                Some(EmailEntryMessage::StrayKeyPress)
+            } else {
+                None
+            }
+        })])
+    }
+
     pub fn view<'a>(&'a self) -> Element<'a, EmailEntryMessage> {
+        let is_adding = self.emails.first().is_some_and(|e| !e.is_empty());
         iced::widget::stack([
             full_title_overlay(
                 row([
                     column([
                         title_text("Enter your email addresses").width(Length::Shrink).into(),
                         supporting_text("Start typing to add an email.").width(Length::Shrink).into(),
-                        vertical_space().height(12.0).into(),
+                        space().height(12.0).into(),
                         container(
                             column([
                                 row([
                                     text_input(
                                         "Enter an email",
-                                        self.emails.get(0).map(|s| s.as_str()).unwrap_or("")
+                                        self.emails.first().map(|s| s.as_str()).unwrap_or("")
                                     )
                                     .on_input(EmailEntryMessage::EmailInput)
                                     .on_submit(EmailEntryMessage::EmailSubmit)
                                     .size(24)
-                                    .id("email_input")
+                                    .id(EMAIL_INPUT_ID.clone())
                                     .style(|theme: &iced::Theme, status| {
                                         let mut normal = text_input::default(theme, status);
                                         normal.border.radius = 6.0.into();
@@ -138,8 +167,8 @@ impl EmailEntry {
                                     })
                                     .padding(Padding { bottom: 10.0, left: 16.0, right: 16.0, top: 10.0 })
                                     .into(),
-                                    horizontal_space().width(6.0).into(),
-                                    button(text(if self.emails.get(0).map_or(false, |e| !e.is_empty()) {
+                                    space().width(6.0).into(),
+                                    button(text(if is_adding {
                                         "Press [Enter] to add"
                                     } else {
                                         "Press [Enter] to finish"
@@ -151,12 +180,12 @@ impl EmailEntry {
                                         normal
                                     })
                                     .padding(Padding { bottom: 10.0, left: 24.0, right: 24.0, top: 10.0 })
-                                    .on_press(EmailEntryMessage::EmailSubmit)
+                                    .on_press_maybe((!is_adding).then_some(EmailEntryMessage::EmailSubmit))
                                     .padding(10)
                                     .into(),
                                 ])
                                 .into(),
-                                vertical_space().height(6.0).into(),
+                                space().height(6.0).into(),
                                 if self.email_validation_triggered {
                                     container(
                                         column([
@@ -184,9 +213,9 @@ impl EmailEntry {
                                 } else {
                                     iced::widget::Space::new().into()
                                 },
-                                vertical_space().height(6.0).into(),
+                                space().height(6.0).into(),
                                 container(
-                                    if self.emails.len() <= 1 {
+                                    if self.emails.len() <= 1 && self.show_qr_code {
                                         column([
                                             text("You can also scan the QR code to download your photos!").into(),
                                             text("If you don't want an email, press [Enter] without entering anything.").into(),
@@ -196,15 +225,20 @@ impl EmailEntry {
                                                         background: Color::WHITE,
                                                         cell: Color::BLACK
                                                     })
-                                                ).width((QR_CODE_SIDE_LENGTH * 8) as u16).height((QR_CODE_SIDE_LENGTH * 8) as u16).padding(8).into()
+                                                ).width((QR_CODE_SIDE_LENGTH * 8) as f32).height((QR_CODE_SIDE_LENGTH * 8) as f32).padding(8).into()
                                             } else {
                                                 container(
                                                     column([
+                                                        loading_spinners::Circular::new()
+                                                            .size(30.0)
+                                                            .bar_height(3.0)
+                                                            .easing(&loading_spinners::easing::STANDARD_DECELERATE)
+                                                            .into(),
                                                         iced::widget::text("Uploading and generating code...").into()
                                                     ])
                                                     .align_x(iced::Alignment::Center)
                                                     .spacing(8)
-                                                ).style(|_| container::background(Color::WHITE)).padding(8).center((QR_CODE_SIDE_LENGTH * 8) as u16).into()
+                                                ).style(|_| container::background(Color::WHITE)).padding(8).center((QR_CODE_SIDE_LENGTH * 8) as f32).into()
                                             }
                                         ]).spacing(16).padding(4).align_x(iced::Alignment::Center)
                                     } else {
@@ -224,7 +258,7 @@ impl EmailEntry {
                                                     ..Default::default()
                                                 }).into()
                                         }).collect();
-                                        column(email_elements).push(vertical_space()).spacing(8)
+                                        column(email_elements).push(space()).spacing(8).height(Length::Fill)
                                     },
                                 )
                                 .padding(12)
@@ -238,10 +272,10 @@ impl EmailEntry {
                                 .width(Length::Fill)
                                 .center(Length::Fill)
                                 .into(),
-                                vertical_space().height(12.0).into(),
+                                space().height(12.0).into(),
                                 container(
                                     column([
-                                        text("Make sure your email provider accepts emails from photobooth@caj.ac.jp.")
+                                        text("If you have any issues recieving your photos, first check your spam folder then ask for help.")
                                             .size(18)
                                             .into(),
                                     ]).align_x(iced::Alignment::Center)
@@ -258,11 +292,11 @@ impl EmailEntry {
                     .align_x(iced::Alignment::Center)
                     .width(Length::Fill)
                     .into(),
-                    horizontal_space().width(12.0).into(),
+                    space().width(12.0).into(),
                     container(
                         column([
                             supporting_text("Your photos").width(Length::Shrink).into(),
-                            vertical_space().height(12.0).into(),
+                            space().height(12.0).into(),
                             image(self.strip_handle.clone())
                                 .height(Length::Fill)
                                 .content_fit(iced::ContentFit::Contain)
@@ -285,7 +319,7 @@ impl EmailEntry {
                 ])
                 .align_y(iced::Alignment::Center),
             ),
-            if self.upload_handle.is_none() {
+            if self.manager.storage_manager.busy() {
                 status_overlay::status_overlay(
                     row([
                         loading_spinners::Circular::new()

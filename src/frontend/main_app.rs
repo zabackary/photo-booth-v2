@@ -7,11 +7,10 @@ mod animations;
 
 mod capture_photos;
 mod capture_photos_prepare;
-// mod email_entry;
+mod email_entry;
 // mod emailing;
-mod preview;
-// mod rendered_preview;
 mod pick_strip;
+mod preview;
 mod rendering;
 mod status_overlay;
 
@@ -22,8 +21,7 @@ enum MainAppPage {
     CapturePhotos(capture_photos::CapturePhotos),
     Rendering(rendering::Rendering),
     PickStrip(pick_strip::PickStrip),
-    // RenderedPreview(RenderedPreview),
-    // EmailEntry(EmailEntry),
+    EmailEntry(email_entry::EmailEntry),
     // Emailing(Emailing),
     // StudentIDEntry(StudentIDEntry),
 }
@@ -40,7 +38,7 @@ pub enum MainAppMessage {
     CapturePhotos(capture_photos::CapturePhotosMessage),
     Rendering(rendering::RenderingMessage),
     PickStrip(pick_strip::PickStripMessage),
-    // EmailEntry(EmailEntryMessage),
+    EmailEntry(email_entry::EmailEntryMessage),
     // PaymentRequired(PaymentRequiredMessage),
     // Emailing(EmailingMessage),
     // RenderedPreview(RenderedPreviewMessage),
@@ -56,6 +54,7 @@ pub enum MainAppAction {
 #[derive(Debug, Default)]
 pub struct Session {
     captured_photos: Vec<RgbaImage>,
+    selected_strip: Option<usize>,
     strips: Option<Vec<RgbaImage>>,
 }
 
@@ -126,7 +125,20 @@ impl MainApp {
                     MainAppAction::None
                 }
             },
-            MainAppMessage::OnUploaded(result) => todo!(),
+            MainAppMessage::OnUploaded(result) => match result {
+                Ok(handle) => {
+                    log::debug!("Successfully uploaded strip with handle {:?}", handle);
+                    if let MainAppPage::EmailEntry(email_entry) = &mut self.page {
+                        email_entry.on_storage_finish(handle);
+                    }
+                    MainAppAction::None
+                }
+                Err(err) => {
+                    log::error!("Error uploading strip: {:?}", err);
+                    todo!("show error to user");
+                    MainAppAction::None
+                }
+            },
             MainAppMessage::CameraFeed(msg) => {
                 MainAppAction::Task(self.feed.update(msg).map(MainAppMessage::CameraFeed))
             }
@@ -215,8 +227,37 @@ impl MainApp {
                 if let MainAppPage::PickStrip(pick_strip) = &mut self.page {
                     match pick_strip.update(message) {
                         pick_strip::PickStripAction::Complete { selection } => {
-                            log::info!("User selected strip {}", selection);
-                            todo!("handle strip selection")
+                            log::debug!("User selected strip {}", selection);
+                            self.session.selected_strip = Some(selection);
+                            let strip = self.session.strips.as_ref().expect("no strips rendered")
+                                [selection]
+                                .clone();
+                            let (email_entry, email_entry_task) = email_entry::EmailEntry::new(
+                                iced::widget::image::Handle::from_rgba(
+                                    strip.width(),
+                                    strip.height(),
+                                    strip.clone().into_raw(),
+                                ),
+                                self.manager.clone(),
+                            );
+                            self.page = MainAppPage::EmailEntry(email_entry);
+                            let manager = self.manager.clone();
+                            let photos = self.session.captured_photos.clone();
+                            MainAppAction::Task(iced::Task::batch([
+                                email_entry_task.map(MainAppMessage::EmailEntry),
+                                iced::Task::perform(
+                                    async move {
+                                        // Start uploading the selected strip immediately
+                                        manager.storage_manager.store(strip, photos).await.map_err(
+                                            |err| {
+                                                log::error!("Failed to upload strip: {:?}", err);
+                                                err.to_string()
+                                            },
+                                        )
+                                    },
+                                    MainAppMessage::OnUploaded,
+                                ),
+                            ]))
                         }
                         pick_strip::PickStripAction::Task(task) => {
                             MainAppAction::Task(task.map(MainAppMessage::PickStrip))
@@ -226,7 +267,36 @@ impl MainApp {
                 } else {
                     MainAppAction::None
                 }
-            } // MainAppMessage::CapturePhotos(msg) => match &mut self.page {
+            }
+            MainAppMessage::EmailEntry(message) => {
+                if let MainAppPage::EmailEntry(email_entry) = &mut self.page {
+                    match email_entry.update(message) {
+                        email_entry::EmailEntryAction::Submit { emails } => {
+                            todo!("handle email entry completion")
+                        }
+                        email_entry::EmailEntryAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::EmailEntry))
+                        }
+                        email_entry::EmailEntryAction::None => MainAppAction::None,
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            } // MainAppMessage::Emailing(message) => {
+              //     if let MainAppPage::Emailing(emailing) = &mut self.page {
+              //         match emailing.update(message) {
+              //             emailing::EmailingAction::Complete => {
+              //                 todo!("handle emailing completion")
+              //             }
+              //             emailing::EmailingAction::Task(task) => {
+              //                 MainAppAction::Task(task.map(MainAppMessage::Emailing))
+              //             }
+              //             emailing::EmailingAction::None => MainAppAction::None,
+              //         }
+              //     } else {
+              //         MainAppAction::None
+              //     }
+              // MainAppMessage::CapturePhotos(msg) => match &mut self.page {
               //     MainAppPage::CapturePhotos(capture_photos) => {
               //         let task = capture_photos.update(msg, &mut self.captured_photos);
 
@@ -337,6 +407,9 @@ impl MainApp {
                 MainAppPage::PickStrip(pick_strip) => {
                     pick_strip.subscription().map(MainAppMessage::PickStrip)
                 }
+                MainAppPage::EmailEntry(email_entry) => {
+                    email_entry.subscription().map(MainAppMessage::EmailEntry)
+                } // MainAppPage::Emailing(emailing) => emailing.subscription().map(MainAppMessage::Emailing),
             },
         ])
     }
@@ -371,13 +444,10 @@ impl MainApp {
                 }
                 MainAppPage::PickStrip(pick_strip) => {
                     pick_strip.view().map(MainAppMessage::PickStrip)
-                } // MainAppPage::RenderedPreview(rendered_preview) => {
-                  //     rendered_preview.view().map(MainAppMessage::RenderedPreview)
-                  // }
-                  // MainAppPage::EmailEntry(email_entry) => {
-                  //     email_entry.view().map(MainAppMessage::EmailEntry).into()
-                  // }
-                  // MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
+                }
+                MainAppPage::EmailEntry(email_entry) => {
+                    email_entry.view().map(MainAppMessage::EmailEntry).into()
+                } // MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
             },
         ])
         .into()
