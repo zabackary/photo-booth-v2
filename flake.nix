@@ -98,9 +98,10 @@
       {
         packages.default = naersk'.buildPackage {
           inherit nativeBuildInputs buildInputs;
+          propagatedBuildInputs = runtimeLibs;
           src = ./.;
 
-          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+          LIBCLANG_PATH = "${pkgs.libclang}/lib";
           BINDGEN_EXTRA_CLANG_ARGS =
             if isLinux then "-I${pkgs.linuxHeaders}/include -I${pkgs.glibc.dev}/include" else "";
           LD_LIBRARY_PATH = libPath;
@@ -113,7 +114,7 @@
           ]
           ++ buildInputs;
 
-          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+          LIBCLANG_PATH = "${pkgs.libclang}/lib";
           BINDGEN_EXTRA_CLANG_ARGS =
             if isLinux then "-I${pkgs.linuxHeaders}/include -I${pkgs.glibc.dev}/include" else "";
           LD_LIBRARY_PATH = libPath;
