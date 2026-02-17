@@ -121,7 +121,7 @@ pub fn title_text(content: &str) -> Text<'_> {
             color: Some(theme.extended_palette().background.base.text),
         })
         .size(42)
-        .wrapping(text::Wrapping::None)
+        .wrapping(text::Wrapping::Word)
         .align_x(Alignment::Center)
         .width(Length::Fill)
 }
@@ -139,7 +139,7 @@ pub fn supporting_text(content: &str) -> Text<'_> {
             ),
         })
         .size(32)
-        .wrapping(text::Wrapping::None)
+        .wrapping(text::Wrapping::Word)
         .align_x(Alignment::Center)
         .width(Length::Fill)
 }

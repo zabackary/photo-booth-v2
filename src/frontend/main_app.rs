@@ -1,4 +1,4 @@
-use iced::{ContentFit, Element, Length, Task};
+use iced::{ContentFit, Element, Task};
 use image::RgbaImage;
 
 use super::camera_feed::{CameraFeed, CameraFeedOptions};
@@ -9,6 +9,7 @@ mod capture_photos;
 mod capture_photos_prepare;
 mod email_entry;
 mod emailing;
+mod error;
 mod pick_strip;
 mod preview;
 mod print_pending;
@@ -25,6 +26,7 @@ enum MainAppPage {
     EmailEntry(email_entry::EmailEntry),
     PrintPending(print_pending::PrintPending),
     Emailing(emailing::Emailing),
+    Error(error::Error),
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +47,7 @@ pub enum MainAppMessage {
     PrintPending(print_pending::PrintPendingMessage),
     EmailEntry(email_entry::EmailEntryMessage),
     Emailing(emailing::EmailingMessage),
+    Error(error::ErrorMessage),
 }
 
 #[derive(Debug)]
@@ -125,7 +128,10 @@ impl MainApp {
                 }
                 Err(err) => {
                     log::error!("Error rendering photos: {:?}", err);
-                    todo!("show error to user");
+                    self.page = MainAppPage::Error(error::Error::new(format!(
+                        "Failed to render photos: {}",
+                        err
+                    )));
                     MainAppAction::None
                 }
             },
@@ -140,7 +146,10 @@ impl MainApp {
                 }
                 Err(err) => {
                     log::error!("Error uploading strip: {:?}", err);
-                    todo!("show error to user");
+                    self.page = MainAppPage::Error(error::Error::new(format!(
+                        "Failed to upload strip: {}",
+                        err
+                    )));
                     MainAppAction::None
                 }
             },
@@ -172,7 +181,10 @@ impl MainApp {
                 }
                 Err(err) => {
                     log::error!("Error sending email: {:?}", err);
-                    todo!("show error to user");
+                    self.page = MainAppPage::Error(error::Error::new(format!(
+                        "Failed to send email: {}",
+                        err
+                    )));
                     MainAppAction::None
                 }
             },
@@ -427,6 +439,23 @@ impl MainApp {
                     MainAppAction::None
                 }
             }
+            MainAppMessage::Error(message) => {
+                if let MainAppPage::Error(error) = &mut self.page {
+                    match error.update(message) {
+                        error::ErrorAction::Complete => {
+                            self.page = MainAppPage::Preview(preview::Preview::new());
+                            self.session = Session::default();
+                            MainAppAction::None
+                        }
+                        error::ErrorAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::Error))
+                        }
+                        error::ErrorAction::None => MainAppAction::None,
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            }
         }
     }
 
@@ -458,6 +487,7 @@ impl MainApp {
                 MainAppPage::Emailing(emailing) => {
                     emailing.subscription().map(MainAppMessage::Emailing)
                 }
+                MainAppPage::Error(error) => error.subscription().map(MainAppMessage::Error),
             },
         ])
     }
@@ -500,6 +530,7 @@ impl MainApp {
                     email_entry.view().map(MainAppMessage::EmailEntry)
                 }
                 MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
+                MainAppPage::Error(error) => error.view().map(MainAppMessage::Error),
             },
         ])
         .into()
