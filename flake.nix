@@ -66,8 +66,11 @@
           (
             [
               openssl
-              libv4l
             ]
+            ++ (lib.optionals isLinux [
+
+              libv4l
+            ])
             ++ runtimeLibs
           );
 
