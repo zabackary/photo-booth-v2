@@ -10,6 +10,7 @@ use super::{animations, status_overlay};
 pub struct CapturePhotos {
     state: CapturePhotosState,
     captured_photos: Vec<RgbaImage>,
+    capture_num: usize,
 
     manager: crate::backend::manager::BackendManager,
     config: &'static crate::config::Config,
@@ -51,6 +52,7 @@ impl CapturePhotos {
     ) -> Self {
         Self {
             captured_photos: Vec::new(),
+            capture_num: 0,
             manager,
             config,
             state: CapturePhotosState::Countdown {
@@ -170,6 +172,7 @@ impl CapturePhotos {
                                         animations::countdown_circle::CountdownCircleAnimation::new(
                                         ),
                                 };
+                                self.capture_num += 1;
                                 CapturePhotosAction::None
                             } else {
                                 // All photos captured, return effect
@@ -190,12 +193,7 @@ impl CapturePhotos {
             status_overlay::status_overlay(
                 text(format!(
                     "photo {} of {}",
-                    self.captured_photos.len()
-                        + match self.state {
-                            CapturePhotosState::Countdown { .. }
-                            | CapturePhotosState::Capture { .. } => 1,
-                            CapturePhotosState::Preview { .. } => 0,
-                        },
+                    self.capture_num + 1,
                     self.config.photos_per_strip
                 ))
                 .size(24),
