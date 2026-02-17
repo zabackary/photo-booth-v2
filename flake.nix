@@ -52,6 +52,7 @@
             [
               openssl
               libgphoto2
+              cups.dev
             ]
             ++ (lib.optionals isLinux [
               # graphics stuff
@@ -66,9 +67,6 @@
 
               # needed for video capture on Linux
               libv4l
-
-              # printing; macOS has it built in
-              cups.dev
             ])
           );
 
