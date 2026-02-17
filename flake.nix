@@ -99,6 +99,11 @@
         packages.default = naersk'.buildPackage {
           inherit nativeBuildInputs buildInputs;
           src = ./.;
+
+          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+          BINDGEN_EXTRA_CLANG_ARGS =
+            if isLinux then "-I${pkgs.linuxHeaders}/include -I${pkgs.glibc.dev}/include" else "";
+          LD_LIBRARY_PATH = libPath;
         };
 
         devShells.default = pkgs.mkShell {
