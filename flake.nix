@@ -47,7 +47,6 @@
           if isLinux then
             with pkgs;
             [
-              libgphoto2
               libGL
               libxkbcommon
               vulkan-loader
@@ -58,7 +57,10 @@
               xorg.libX11
             ]
           else
-            [ ];
+            with pkgs;
+            [
+              libgphoto2
+            ];
 
         # buildInputs contains libraries needed to compile/link and at runtime
         buildInputs =
@@ -100,11 +102,13 @@
           inherit nativeBuildInputs buildInputs;
           propagatedBuildInputs = runtimeLibs;
           src = ./.;
+          postInstall = ''
+            wrapProgram "$out/bin/photo-booth-v2" --prefix LD_LIBRARY_PATH : ${libPath}
+          '';
 
-          LIBCLANG_PATH = "${pkgs.libclang}/lib";
+          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
           BINDGEN_EXTRA_CLANG_ARGS =
             if isLinux then "-I${pkgs.linuxHeaders}/include -I${pkgs.glibc.dev}/include" else "";
-          LD_LIBRARY_PATH = libPath;
         };
 
         devShells.default = pkgs.mkShell {
@@ -114,7 +118,7 @@
           ]
           ++ buildInputs;
 
-          LIBCLANG_PATH = "${pkgs.libclang}/lib";
+          LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
           BINDGEN_EXTRA_CLANG_ARGS =
             if isLinux then "-I${pkgs.linuxHeaders}/include -I${pkgs.glibc.dev}/include" else "";
           LD_LIBRARY_PATH = libPath;
