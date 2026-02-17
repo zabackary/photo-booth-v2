@@ -493,6 +493,40 @@ impl MainApp {
     }
 
     pub fn view(&self) -> Element<'_, MainAppMessage> {
+        let camera_info = if self.manager.camera_manager.is_reconnecting() {
+            "error, reconnecting"
+        } else {
+            "ok"
+        };
+        let printer_info = if let Some(printer_manager) = &self.manager.printer_manager {
+            if printer_manager.is_reconnecting() {
+                "error, reconnecting"
+            } else if printer_manager.busy() {
+                "busy"
+            } else {
+                "ok"
+            }
+        } else {
+            "none"
+        };
+        let emailer_info = if let Some(email_manager) = &self.manager.email_manager {
+            if email_manager.busy() { "busy" } else { "ok" }
+        } else {
+            "none"
+        };
+        let storage_info = if self.manager.storage_manager.busy() {
+            "busy"
+        } else {
+            "ok"
+        };
+        let info = format!(
+            "photo-booth-v2 v{} | camera: {} | printer: {} | emailer: {} | storage: {}",
+            env!("CARGO_PKG_VERSION"),
+            camera_info,
+            printer_info,
+            emailer_info,
+            storage_info
+        );
         iced::widget::stack([
             // Bottom layer: camera feed
             self.feed
@@ -532,6 +566,9 @@ impl MainApp {
                 MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
                 MainAppPage::Error(error) => error.view().map(MainAppMessage::Error),
             },
+            iced::widget::bottom_right(iced::widget::text(info).size(12))
+                .padding(4)
+                .into(),
         ])
         .into()
     }
