@@ -24,6 +24,8 @@
           inherit system overlays;
         };
 
+        toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+
         isLinux = pkgs.stdenv.isLinux;
         lib = pkgs.lib;
 
@@ -85,10 +87,13 @@
           else
             "";
 
-        naersk-lib = naersk.lib."${system}";
+        naersk' = pkgs.callPackage naersk {
+          cargo = toolchain;
+          rustc = toolchain;
+        };
       in
       {
-        packages.default = naersk-lib.buildPackage {
+        packages.default = naersk'.buildPackage {
           inherit nativeBuildInputs buildInputs;
           src = ./.;
         };
@@ -96,9 +101,7 @@
         devShells.default = pkgs.mkShell {
           inherit nativeBuildInputs;
           buildInputs = [
-            (pkgs.rust-bin.stable.latest.default.override {
-              extensions = [ "rust-src" ]; # Required for rust-analyzer to work
-            })
+            toolchain
           ]
           ++ buildInputs;
 
