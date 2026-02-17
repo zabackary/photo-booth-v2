@@ -30,23 +30,31 @@
         lib = pkgs.lib;
 
         # compile-time (native) tools
-        nativeBuildInputs = lib.concatMap (x: x) [
-          (lib.optionals isLinux [
-            pkgs.linuxHeaders
-            pkgs.glibc.dev
-          ])
-          [
-            pkgs.pkg-config
-            pkgs.libclang
-            pkgs.mold-wrapped
-          ]
-        ];
-
-        # runtime / link libraries (only pulled on Linux)
-        runtimeLibs =
-          if isLinux then
-            with pkgs;
+        nativeBuildInputs =
+          with pkgs;
+          lib.concatMap (x: x) [
+            (lib.optionals isLinux [
+              linuxHeaders
+              glibc.dev
+            ])
             [
+              pkg-config
+              libclang
+              mold-wrapped
+              makeWrapper
+            ]
+          ];
+
+        # buildInputs contains libraries needed to compile/link and at runtime
+        buildInputs =
+          with pkgs;
+          (
+            [
+              openssl
+              libgphoto2
+            ]
+            ++ (lib.optionals isLinux [
+              # graphics stuff
               libGL
               libxkbcommon
               vulkan-loader
@@ -55,25 +63,10 @@
               xorg.libXrandr
               xorg.libXi
               xorg.libX11
-            ]
-          else
-            with pkgs;
-            [
-              libgphoto2
-            ];
 
-        # buildInputs contains libraries needed to compile/link and at runtime
-        buildInputs =
-          with pkgs;
-          (
-            [
-              openssl
-            ]
-            ++ (lib.optionals isLinux [
-
+              # needed for video capture on Linux
               libv4l
             ])
-            ++ runtimeLibs
           );
 
         libPath =
@@ -100,7 +93,6 @@
       {
         packages.default = naersk'.buildPackage {
           inherit nativeBuildInputs buildInputs;
-          propagatedBuildInputs = runtimeLibs;
           src = ./.;
           postInstall = ''
             wrapProgram "$out/bin/photo-booth-v2" --prefix LD_LIBRARY_PATH : ${libPath}
