@@ -128,6 +128,14 @@ impl BackendManager {
         let printer_backend = match &config.printer {
             Some(config_printer) => {
                 let backend = match config_printer.backend {
+                    #[cfg(feature = "printer_cups")]
+                    crate::config::PrinterBackendConfig::Cups {
+                        ref default_printer_name,
+                        ref media,
+                    } => Box::new(crate::backend::printer::cups::CupsPrinterBackend::new(
+                        default_printer_name.clone(),
+                        media.clone(),
+                    )) as Box<dyn PrinterBackend>,
                     #[cfg(feature = "mock")]
                     crate::config::PrinterBackendConfig::Mock => {
                         Box::new(crate::backend::printer::mock::MockPrinterBackend {})

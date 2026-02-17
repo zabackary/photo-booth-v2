@@ -66,6 +66,9 @@
 
               # needed for video capture on Linux
               libv4l
+
+              # printing; macOS has it built in
+              cups.dev
             ])
           );
 
@@ -100,7 +103,10 @@
 
           LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
           BINDGEN_EXTRA_CLANG_ARGS =
-            if isLinux then "-I${pkgs.linuxHeaders}/include -I${pkgs.glibc.dev}/include" else "";
+            if isLinux then
+              "-I${pkgs.linuxHeaders}/include -I${pkgs.glibc.dev}/include -I${pkgs.cups.dev}/include"
+            else
+              "";
         };
 
         devShells.default = pkgs.mkShell {
@@ -112,7 +118,10 @@
 
           LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
           BINDGEN_EXTRA_CLANG_ARGS =
-            if isLinux then "-I${pkgs.linuxHeaders}/include -I${pkgs.glibc.dev}/include" else "";
+            if isLinux then
+              "-I${pkgs.linuxHeaders}/include -I${pkgs.glibc.dev}/include -I${pkgs.cups.dev}/include"
+            else
+              "";
           LD_LIBRARY_PATH = libPath;
         };
       }

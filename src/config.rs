@@ -116,6 +116,16 @@ fn default_scale() -> f32 {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum PrinterBackendConfig {
+    /// The CUPS printer backend, which uses the CUPS library to connect to printers
+    #[cfg(feature = "printer_cups")]
+    Cups {
+        /// The name of the default printer to use, if any. If not specified, the default printer configured in CUPS will be used.
+        #[serde(skip_serializing_if = "Option::is_none", rename = "defaultPrinterName")]
+        default_printer_name: Option<String>,
+        /// The media to use when printing, if any.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        media: Option<String>,
+    },
     /// A mock printer backend that simulates a printer for testing and development
     #[cfg(feature = "mock")]
     Mock,

@@ -1,16 +1,13 @@
 use std::fmt::{Debug, Display};
 
+#[cfg(feature = "printer_cups")]
+pub mod cups;
 #[cfg(feature = "mock")]
 pub mod mock;
 
 /// A printer backend
 #[async_trait::async_trait]
 pub trait PrinterBackend: Debug + Send + Sync + 'static {
-    /// Initialize this backend
-    async fn initialize(&self) -> Result<(), anyhow::Error> {
-        Ok(())
-    }
-
     /// Enumerate available printers attached to this backend
     async fn enumerate(&self) -> Result<Vec<Box<dyn PrinterBackendHandle>>, anyhow::Error>;
 

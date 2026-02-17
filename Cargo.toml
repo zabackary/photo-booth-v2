@@ -40,6 +40,7 @@ anyhow = "1.0.101"
 futures = "0.3.31"
 hex_color = { version = "3.0.0", features = ["serde"] }
 clap = { version = "4.5.58", features = ["derive"] }
+cups_rs = { version = "0.3.0", optional = true }
 
 [features]
 default = [
@@ -49,6 +50,7 @@ default = [
   "storage_local_filesystem",
   "email_gapps_script_webhook",
   "renderer_simple",
+  "printer_cups",
   "mock",
 ]
 fast_animations = [] # faster animations to speed up iteraction during dev
@@ -59,6 +61,7 @@ storage_google_drive = ["dep:gcp_auth", "dep:reqwest"]
 storage_local_filesystem = []
 email_gapps_script_webhook = ["storage_google_drive", "dep:reqwest"]
 renderer_simple = []
+printer_cups = ["dep:cups_rs"]
 
 # The following lines from https://bevyengine.org/learn/quick-start/getting-started/setup/
 # Enable a small amount of optimization in the dev profile.
