@@ -1,8 +1,7 @@
-# Shrimp Game Check-in
+# photo-booth-v2
 
-This is a iced/nokhwa powered photo booth app to check in teams for a student council event at Christian Academy in Japan.
-At American schools, the student council is expected to host productions/events every once in a while. This is for one of them.
+> A poorly named photo booth application
 
-It's based off code I used for a photo booth at a different event but it has been rebranded.
+photo-booth-v2 is a configuration photo booth application supporting multiple backends for each option. It supports configurable theming, printers, email servers, etc.
 
 I hereby license this repo under the GPLv3. Exceptions will be granted if you ask.
