@@ -53,6 +53,10 @@ pub struct CameraConfig {
 
     /// The aspect ratio to use when previewing the camera
     pub preview_aspect_ratio: f32,
+
+    /// The backend configration
+    #[serde(flatten)]
+    pub manager_config: crate::backend::manager::camera::CameraManagerConfig,
 }
 
 /// The camera backend and its configration

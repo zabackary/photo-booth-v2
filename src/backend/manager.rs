@@ -36,13 +36,14 @@ pub struct BackendManager {
 impl BackendManager {
     /// Create a new [`BackendManager`] with the given backends
     pub async fn new(
-        camera_backend: Box<dyn CameraBackend>,
+        camera_backend: (Box<dyn CameraBackend>, camera::CameraManagerConfig),
         storage_backend: Box<dyn StorageBackend>,
         renderer_backend: Box<dyn RendererBackend>,
         printer_backend: Option<(Box<dyn PrinterBackend>, printer::PrinterManagerConfig)>,
         email_backend: Option<(Box<dyn EmailBackend>, email::EmailManagerConfig)>,
     ) -> Result<Self, anyhow::Error> {
-        let (camera_manager, camera_frame_rx) = camera::CameraManager::new(camera_backend).await?;
+        let (camera_manager, camera_frame_rx) =
+            camera::CameraManager::new(camera_backend.0, camera_backend.1).await?;
         Ok(BackendManager {
             camera_manager,
             camera_frame_rx: std::sync::Arc::new(std::sync::Mutex::new(Some(camera_frame_rx))),
@@ -75,23 +76,26 @@ impl BackendManager {
     /// This initializes all backends specified in the configuration, and
     /// returns an error if any backend fails to initialize.
     pub async fn from_config(config: &crate::config::Config) -> Result<Self, anyhow::Error> {
-        let camera_backend = match config.camera.backend {
-            #[cfg(feature = "camera_gphoto2")]
-            crate::config::CameraBackendConfig::GPhoto2 => {
-                Box::new(crate::backend::camera::gphoto2::GPhoto2CameraBackend::new())
-                    as Box<dyn CameraBackend>
-            }
-            #[cfg(feature = "camera_nokhwa")]
-            crate::config::CameraBackendConfig::Nokhwa { fast_capture } => Box::new(
-                crate::backend::camera::nokhwa::NokhwaCameraBackend::new(fast_capture).await?,
-            )
-                as Box<dyn CameraBackend>,
-            #[cfg(feature = "mock")]
-            crate::config::CameraBackendConfig::Mock => {
-                Box::new(crate::backend::camera::mock::MockCameraBackend {})
-                    as Box<dyn CameraBackend>
-            }
-        };
+        let camera_backend = (
+            match config.camera.backend {
+                #[cfg(feature = "camera_gphoto2")]
+                crate::config::CameraBackendConfig::GPhoto2 => {
+                    Box::new(crate::backend::camera::gphoto2::GPhoto2CameraBackend::new())
+                        as Box<dyn CameraBackend>
+                }
+                #[cfg(feature = "camera_nokhwa")]
+                crate::config::CameraBackendConfig::Nokhwa { fast_capture } => Box::new(
+                    crate::backend::camera::nokhwa::NokhwaCameraBackend::new(fast_capture).await?,
+                )
+                    as Box<dyn CameraBackend>,
+                #[cfg(feature = "mock")]
+                crate::config::CameraBackendConfig::Mock => {
+                    Box::new(crate::backend::camera::mock::MockCameraBackend {})
+                        as Box<dyn CameraBackend>
+                }
+            },
+            config.camera.manager_config.clone(),
+        );
         let storage_backend = match config.storage {
             #[cfg(feature = "storage_google_drive")]
             crate::config::StorageConfig::GoogleDrive { ref folder_id } => Box::new(

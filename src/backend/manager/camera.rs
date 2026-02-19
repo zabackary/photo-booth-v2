@@ -15,7 +15,16 @@ pub struct CameraManager {
     reconnecting: Arc<std::sync::Mutex<bool>>,
     frame_still_command_tx: Arc<tokio::sync::Mutex<tokio::sync::mpsc::Sender<()>>>,
     frame_still_rx: Arc<tokio::sync::Mutex<tokio::sync::mpsc::Receiver<RgbaImage>>>,
+    config: CameraManagerConfig,
     _task: Arc<tokio::task::JoinHandle<()>>,
+}
+
+/// Configration for a camera manager
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct CameraManagerConfig {
+    /// Whether to not mirror the captured photos
+    #[serde(default)]
+    pub no_mirror_capture: bool,
 }
 
 impl CameraManager {
@@ -23,6 +32,7 @@ impl CameraManager {
     /// the worker
     pub async fn new(
         camera_backend: Box<dyn CameraBackend>,
+        config: CameraManagerConfig,
     ) -> Result<(Self, tokio::sync::mpsc::Receiver<()>), anyhow::Error> {
         let initial_camera = match camera_backend.open_default().await {
             Ok(Some(camera)) => camera,
@@ -35,7 +45,7 @@ impl CameraManager {
                 anyhow::bail!("Failed to open default camera from backend: {:?}", e);
             }
         };
-        Ok(Self::with_camera(camera_backend, initial_camera))
+        Ok(Self::with_camera(camera_backend, initial_camera, config))
     }
 
     /// Starts the worker that manages the camera connection and frame
@@ -46,6 +56,7 @@ impl CameraManager {
     pub fn with_camera(
         camera_backend: Box<dyn CameraBackend>,
         initial_camera: Box<dyn Camera>,
+        config: CameraManagerConfig,
     ) -> (Self, tokio::sync::mpsc::Receiver<()>) {
         let current_frame = Arc::new(std::sync::Mutex::new(None));
         let reconnecting = Arc::new(std::sync::Mutex::new(false));
@@ -59,6 +70,7 @@ impl CameraManager {
                 reconnecting: reconnecting.clone(),
                 frame_still_command_tx: Arc::new(tokio::sync::Mutex::new(frame_still_command_tx)),
                 frame_still_rx: Arc::new(tokio::sync::Mutex::new(frame_still_rx)),
+                config,
                 // It's very clunky to have a worker task for this, but Camera
                 // is not Sync, so we can't share it across threads without a
                 // worker task to manage it. (this is mostly a limitation of nokhwa)
@@ -146,10 +158,13 @@ impl CameraManager {
         let command_tx = self.frame_still_command_tx.lock().await;
         command_tx.send(()).await?;
         let mut frame_still_rx = self.frame_still_rx.lock().await;
-        let frame = frame_still_rx
+        let mut frame = frame_still_rx
             .recv()
             .await
             .ok_or_else(|| anyhow::anyhow!("camera worker task was unexpectedly closed"))?;
+        if !self.config.no_mirror_capture {
+            image::imageops::flip_horizontal_in_place(&mut frame);
+        }
         Ok(frame)
     }
 
