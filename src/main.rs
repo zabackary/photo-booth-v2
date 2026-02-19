@@ -1,5 +1,6 @@
 use anyhow::Context;
 use clap::Parser;
+use screen_wake_lock::ScreenWakeLock;
 
 use crate::frontend::PhotoBoothApplication;
 
@@ -36,6 +37,7 @@ fn main() -> anyhow::Result<()> {
 
     // Start the frontend
     log::info!("Starting application");
+    let wake_lock = ScreenWakeLock::acquire("photo booth is running");
     iced::application::timed(
         move || PhotoBoothApplication::new(config),
         PhotoBoothApplication::update,
@@ -54,6 +56,7 @@ fn main() -> anyhow::Result<()> {
     .run()
     .context("application exited with an error")?;
 
+    std::mem::drop(wake_lock); // release the wake lock
     log::info!("Application exited successfully");
     Ok(())
 }
