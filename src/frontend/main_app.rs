@@ -57,12 +57,25 @@ pub enum MainAppAction {
 }
 
 /// State needed for the current session
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Session {
     captured_photos: Vec<RgbaImage>,
     selected_strip: Option<usize>,
     strips: Option<Vec<RgbaImage>>,
     storage_handle: Option<crate::backend::storage::StorageHandle>,
+    num_copies: u32,
+}
+
+impl Default for Session {
+    fn default() -> Self {
+        Self {
+            captured_photos: Vec::new(),
+            selected_strip: None,
+            strips: None,
+            storage_handle: None,
+            num_copies: 1,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -361,12 +374,16 @@ impl MainApp {
                                 .printer_manager
                                 .clone()
                                 .expect("no printer manager");
+                            let num_copies = self.session.num_copies;
                             let print_task = iced::Task::perform(
                                 async move {
-                                    printer_manager.print(strip).await.map_err(|err| {
-                                        log::error!("Failed to print strip: {:?}", err);
-                                        err.to_string()
-                                    })
+                                    printer_manager
+                                        .print(strip, num_copies)
+                                        .await
+                                        .map_err(|err| {
+                                            log::error!("Failed to print strip: {:?}", err);
+                                            err.to_string()
+                                        })
                                 },
                                 MainAppMessage::OnPrintFinish,
                             );

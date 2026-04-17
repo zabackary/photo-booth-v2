@@ -101,8 +101,16 @@ impl PrinterManager {
         *self.reconnecting.lock().unwrap()
     }
 
-    /// Print a photo
-    pub async fn print(&self, photo: image::RgbaImage) -> Result<(), anyhow::Error> {
+    pub async fn print(&self, photo: image::RgbaImage, quantity: u32) -> Result<(), anyhow::Error> {
+        for i in 0..quantity {
+            log::info!("Printing copy {}/{}", i + 1, quantity);
+            self.print_single(photo.clone()).await?;
+        }
+        Ok(())
+    }
+
+    /// Print a single photo
+    async fn print_single(&self, photo: image::RgbaImage) -> Result<(), anyhow::Error> {
         let backend = self.backend.lock().await;
         let photo: image::RgbImage = photo.convert();
         let mut printer = self.current_printer.lock().await;
