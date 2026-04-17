@@ -1,16 +1,24 @@
+use std::time::{Duration, Instant};
+
+use anim::{Animation, easing};
 use iced::{
     Element,
-    widget::{stack, text},
+    widget::{ProgressBar, column, stack, text},
 };
 use image::RgbaImage;
 
 use super::{animations, status_overlay};
+
+const PROGRESS_BAR_ANIMATION_LENGTH: std::time::Duration = std::time::Duration::from_millis(800);
 
 #[derive(Debug)]
 pub struct CapturePhotos {
     state: CapturePhotosState,
     captured_photos: Vec<RgbaImage>,
     capture_num: usize,
+
+    progress_timeline_girth: anim::Timeline<f32>,
+    progress_timeline: anim::Timeline<f32>,
 
     manager: crate::backend::manager::BackendManager,
     config: &'static crate::config::Config,
@@ -55,6 +63,15 @@ impl CapturePhotos {
             capture_num: 0,
             manager,
             config,
+            progress_timeline_girth: anim::Options::new(0.0, 16.0)
+                .duration(PROGRESS_BAR_ANIMATION_LENGTH)
+                .easing(easing::cubic_ease().mode(easing::EasingMode::Out))
+                .build()
+                .chain(anim::builder::constant(16.0, Duration::from_hours(1)))
+                .begin_animation(),
+            progress_timeline: anim::Options::new(0.0, 0.0)
+                .easing(easing::cubic_ease().mode(easing::EasingMode::InOut))
+                .begin_animation(),
             state: CapturePhotosState::Countdown {
                 count: 3,
                 animation: animations::countdown_circle::CountdownCircleAnimation::new(),
@@ -63,6 +80,10 @@ impl CapturePhotos {
     }
 
     pub fn update(&mut self, message: CapturePhotosMessage) -> CapturePhotosAction {
+        self.progress_timeline.update_with_time(Instant::now());
+        self.progress_timeline_girth
+            .update_with_time(Instant::now());
+
         match message {
             CapturePhotosMessage::CaptureComplete(photo) => {
                 log::trace!("Photo capture complete");
@@ -173,6 +194,17 @@ impl CapturePhotos {
                                         ),
                                 };
                                 self.capture_num += 1;
+                                let to = (self.capture_num as f32)
+                                    / (self.config.photos_per_strip as f32 - 1.0);
+                                self.progress_timeline =
+                                    anim::Options::new(self.progress_timeline.value(), to)
+                                        .easing(
+                                            easing::cubic_ease().mode(easing::EasingMode::InOut),
+                                        )
+                                        .duration(PROGRESS_BAR_ANIMATION_LENGTH)
+                                        .build()
+                                        .chain(anim::builder::constant(to, Duration::from_hours(1)))
+                                        .begin_animation();
                                 CapturePhotosAction::None
                             } else {
                                 // All photos captured, return effect
@@ -190,14 +222,20 @@ impl CapturePhotos {
 
     pub fn view(&self) -> Element<'_, CapturePhotosMessage> {
         stack([
-            status_overlay::status_overlay(
-                text(format!(
-                    "photo {} of {}",
-                    self.capture_num + 1,
-                    self.config.photos_per_strip
-                ))
-                .size(24),
-            )
+            column([
+                status_overlay::status_overlay(
+                    text(format!(
+                        "photo {} of {}",
+                        self.capture_num + 1,
+                        self.config.photos_per_strip
+                    ))
+                    .size(24),
+                )
+                .into(),
+                ProgressBar::new(0.0..=1.0, self.progress_timeline.value())
+                    .girth(self.progress_timeline_girth.value())
+                    .into(),
+            ])
             .into(),
             match &self.state {
                 CapturePhotosState::Countdown { animation, count } => animation.view(*count).into(),
