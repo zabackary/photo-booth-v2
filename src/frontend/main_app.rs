@@ -13,6 +13,7 @@ mod error;
 mod pick_strip;
 mod preview;
 mod print_pending;
+mod qr_code;
 mod rendering;
 mod status_overlay;
 
@@ -24,6 +25,7 @@ enum MainAppPage {
     Rendering(rendering::Rendering),
     PickStrip(pick_strip::PickStrip),
     EmailEntry(email_entry::EmailEntry),
+    QrCode(qr_code::QrCode),
     PrintPending(print_pending::PrintPending),
     Emailing(emailing::Emailing),
     Error(error::Error),
@@ -46,6 +48,7 @@ pub enum MainAppMessage {
     PickStrip(pick_strip::PickStripMessage),
     PrintPending(print_pending::PrintPendingMessage),
     EmailEntry(email_entry::EmailEntryMessage),
+    QrCode(qr_code::QrCodeMessage),
     Emailing(emailing::EmailingMessage),
     Error(error::ErrorMessage),
 }
@@ -154,6 +157,8 @@ impl MainApp {
                     self.session.storage_handle = Some(handle.clone());
                     if let MainAppPage::EmailEntry(email_entry) = &mut self.page {
                         email_entry.on_storage_finish(handle);
+                    } else if let MainAppPage::QrCode(qr_code) = &mut self.page {
+                        qr_code.on_storage_finish(handle);
                     }
                     MainAppAction::None
                 }
@@ -325,7 +330,7 @@ impl MainApp {
                                     |_| MainAppMessage::OnPrintWaitFinish,
                                 );
                                 MainAppAction::Task(iced::Task::batch([print_task, upload_task]))
-                            } else {
+                            } else if self.manager.email_manager.is_some() {
                                 let (email_entry, email_entry_task) = email_entry::EmailEntry::new(
                                     iced::widget::image::Handle::from_rgba(
                                         strip.width(),
@@ -340,6 +345,19 @@ impl MainApp {
                                     email_entry_task.map(MainAppMessage::EmailEntry),
                                     upload_task,
                                 ]))
+                            } else {
+                                // no printer or email, just show the QR code
+                                let (qr_code, qr_code_task) = qr_code::QrCode::new(
+                                    iced::widget::image::Handle::from_rgba(
+                                        strip.width(),
+                                        strip.height(),
+                                        strip.clone().into_raw(),
+                                    ),
+                                    self.manager.clone(),
+                                    self.session.storage_handle.clone(),
+                                );
+                                self.page = MainAppPage::QrCode(qr_code);
+                                MainAppAction::Task(qr_code_task.map(MainAppMessage::QrCode))
                             }
                         }
                         pick_strip::PickStripAction::Task(task) => {
@@ -358,16 +376,32 @@ impl MainApp {
                             let strip = self.session.strips.as_ref().expect("no strips rendered")
                                 [self.session.selected_strip.expect("no strip selected")]
                             .clone();
-                            let (email_entry, email_entry_task) = email_entry::EmailEntry::new(
-                                iced::widget::image::Handle::from_rgba(
-                                    strip.width(),
-                                    strip.height(),
-                                    strip.clone().into_raw(),
-                                ),
-                                self.manager.clone(),
-                                self.session.storage_handle.clone(),
-                            );
-                            self.page = MainAppPage::EmailEntry(email_entry);
+
+                            let next_task = if self.manager.email_manager.is_some() {
+                                let (email_entry, email_entry_task) = email_entry::EmailEntry::new(
+                                    iced::widget::image::Handle::from_rgba(
+                                        strip.width(),
+                                        strip.height(),
+                                        strip.clone().into_raw(),
+                                    ),
+                                    self.manager.clone(),
+                                    self.session.storage_handle.clone(),
+                                );
+                                self.page = MainAppPage::EmailEntry(email_entry);
+                                email_entry_task.map(MainAppMessage::EmailEntry)
+                            } else {
+                                let (qr_code, qr_code_task) = qr_code::QrCode::new(
+                                    iced::widget::image::Handle::from_rgba(
+                                        strip.width(),
+                                        strip.height(),
+                                        strip.clone().into_raw(),
+                                    ),
+                                    self.manager.clone(),
+                                    self.session.storage_handle.clone(),
+                                );
+                                self.page = MainAppPage::QrCode(qr_code);
+                                qr_code_task.map(MainAppMessage::QrCode)
+                            };
 
                             let printer_manager = self
                                 .manager
@@ -388,10 +422,7 @@ impl MainApp {
                                 MainAppMessage::OnPrintFinish,
                             );
 
-                            MainAppAction::Task(iced::Task::batch([
-                                print_task,
-                                email_entry_task.map(MainAppMessage::EmailEntry),
-                            ]))
+                            MainAppAction::Task(iced::Task::batch([print_task, next_task]))
                         }
                         print_pending::PrintPendingAction::Task(task) => {
                             MainAppAction::Task(task.map(MainAppMessage::PrintPending))
@@ -418,8 +449,7 @@ impl MainApp {
                                 async move {
                                     manager
                                         .email_manager
-                                        // TODO: make no email manager allowed
-                                        .expect("email managers are required for now")
+                                        .expect("email entry should not be possible without email manager")
                                         .send_email(storage_handle, emails)
                                         .await
                                         .map_err(|err| {
@@ -434,6 +464,23 @@ impl MainApp {
                             MainAppAction::Task(task.map(MainAppMessage::EmailEntry))
                         }
                         email_entry::EmailEntryAction::None => MainAppAction::None,
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            }
+            MainAppMessage::QrCode(message) => {
+                if let MainAppPage::QrCode(qr_code) = &mut self.page {
+                    match qr_code.update(message) {
+                        qr_code::QrCodeAction::Continue => {
+                            self.page = MainAppPage::Preview(preview::Preview::new());
+                            self.session = Session::default();
+                            MainAppAction::None
+                        }
+                        qr_code::QrCodeAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::QrCode))
+                        }
+                        qr_code::QrCodeAction::None => MainAppAction::None,
                     }
                 } else {
                     MainAppAction::None
@@ -483,6 +530,7 @@ impl MainApp {
                 MainAppPage::Preview(preview) => {
                     preview.subscription().map(MainAppMessage::Preview)
                 }
+                MainAppPage::QrCode(qr_code) => qr_code.subscription().map(MainAppMessage::QrCode),
                 MainAppPage::CapturePhotosPrepare(capture_photos_prepare) => capture_photos_prepare
                     .subscription()
                     .map(MainAppMessage::CapturePhotosPrepare),
@@ -580,6 +628,7 @@ impl MainApp {
                 MainAppPage::EmailEntry(email_entry) => {
                     email_entry.view().map(MainAppMessage::EmailEntry)
                 }
+                MainAppPage::QrCode(qr_code) => qr_code.view().map(MainAppMessage::QrCode),
                 MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
                 MainAppPage::Error(error) => error.view().map(MainAppMessage::Error),
             },

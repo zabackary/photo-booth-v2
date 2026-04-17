@@ -26,7 +26,7 @@ pub struct EmailEntry {
     email_validation_triggered: bool,
     qr_code_data: Option<iced::widget::qr_code::Data>,
     show_qr_code: bool,
-    pub strip_handle: iced::widget::image::Handle,
+    strip_handle: iced::widget::image::Handle,
 
     manager: crate::backend::manager::BackendManager,
 }
