@@ -16,7 +16,7 @@ pub struct CapturePhotos {
     config: &'static crate::config::Config,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 enum CapturePhotosState {
     Countdown {
         count: usize,

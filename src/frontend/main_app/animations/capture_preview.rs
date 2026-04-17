@@ -1,69 +1,97 @@
-use std::time::{Duration, Instant};
+use std::{
+    cell::RefCell,
+    time::{Duration, Instant},
+};
 
+use anim::{Animatable, Animation, Timeline, easing};
 use iced::{
-    Animation, Color, Length, Rotation,
+    Color, Length, Rotation,
     widget::{Container, column, container, image, image::Handle, responsive, space},
 };
 
 use super::LENGTH_DIVISOR;
 
+const IMAGE_RELATIVE_SIZE: f32 = 0.8;
 pub const ANIMATION_LENGTH: Duration = Duration::from_millis(3000 / LENGTH_DIVISOR);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Animatable)]
+struct AnimationState {
+    opacity: f32,
+    offset_scale: f32,
+    width_scale: f32,
+    rotation_radians: f32,
+    background_opacity: f32,
+}
+
+fn animation() -> impl anim::Animation<Item = AnimationState> {
+    anim::builder::key_frames([
+        anim::KeyFrame::new(AnimationState {
+            opacity: 0.0,
+            offset_scale: 1.0,
+            width_scale: 0.95,
+            rotation_radians: 0.0,
+            background_opacity: 0.0,
+        })
+        .by_percent(0.0),
+        anim::KeyFrame::new(AnimationState {
+            opacity: 1.0,
+            offset_scale: 0.0,
+            width_scale: 1.0,
+            rotation_radians: 0.0,
+            background_opacity: 0.6,
+        })
+        .easing(easing::cubic_ease().mode(easing::EasingMode::Out))
+        .by_percent(0.2),
+        anim::KeyFrame::new(AnimationState {
+            opacity: 1.0,
+            offset_scale: 0.0,
+            width_scale: 1.0,
+            rotation_radians: 0.0,
+            background_opacity: 0.6,
+        })
+        .by_percent(0.8),
+        anim::KeyFrame::new(AnimationState {
+            opacity: 0.8,
+            offset_scale: 0.0,
+            width_scale: 0.0,
+            rotation_radians: 0.7,
+            background_opacity: 0.0,
+        })
+        .easing(easing::cubic_ease().mode(easing::EasingMode::In))
+        .by_duration(ANIMATION_LENGTH),
+    ])
+}
+
+#[derive(Debug)]
 pub struct CapturePreviewAnimation {
-    progress: Animation<bool>,
+    timeline: RefCell<Timeline<AnimationState>>,
     photo_aspect_ratio: f32,
 }
 
 impl CapturePreviewAnimation {
     pub fn new(photo_aspect_ratio: f32) -> Self {
-        let progress = Animation::new(false)
-            .duration(ANIMATION_LENGTH)
-            .easing(iced::animation::Easing::EaseInOutCubic)
-            .go(true, Instant::now());
-
         Self {
-            progress,
+            timeline: RefCell::new(animation().begin_animation()),
             photo_aspect_ratio,
         }
     }
 
     pub fn finished(&self) -> bool {
-        !self.progress.is_animating(Instant::now())
+        self.timeline.borrow().status().is_completed()
     }
 
     pub fn view<'a, Message: 'a>(&'a self, handle: &'a Handle) -> Container<'a, Message> {
         container(responsive(move |size| {
-            let t = self.progress.interpolate(0.0, 1.0, Instant::now());
+            self.timeline.borrow_mut().update_with_time(Instant::now());
+            let AnimationState {
+                opacity,
+                offset_scale,
+                width_scale,
+                rotation_radians,
+                background_opacity,
+            } = self.timeline.borrow().value();
 
-            // keyframe interpolation helper
-            let lerp = |a: f32, b: f32, t: f32| a + (b - a) * t;
-
-            // original keyframes at 0.0, 0.2, 0.8, 1.0
-            let (opacity, offset_scale, width_scale, rotation_radians, background_opacity) =
-                if t < 0.2 {
-                    let tt = t / 0.2;
-                    (
-                        lerp(0.0, 1.0, tt),
-                        lerp(1.0, 0.0, tt),
-                        lerp(0.4, 1.0, tt),
-                        lerp(0.0, 0.0, tt),
-                        lerp(0.0, 0.9, tt),
-                    )
-                } else if t < 0.8 {
-                    (1.0, 0.0, 1.0, 0.0, 0.9)
-                } else {
-                    let tt = (t - 0.8) / 0.2;
-                    (
-                        lerp(1.0, 0.8, tt),
-                        lerp(0.0, 0.0, tt),
-                        lerp(1.0, 0.0, tt),
-                        lerp(0.0, 1.0, tt),
-                        lerp(0.9, 0.0, tt),
-                    )
-                };
-
-            let image_width = width_scale * size.width * 0.8;
+            let image_width = width_scale * size.width * IMAGE_RELATIVE_SIZE;
             let image_height = image_width / self.photo_aspect_ratio;
 
             let remaining_vertical_space = size.height - image_height;
