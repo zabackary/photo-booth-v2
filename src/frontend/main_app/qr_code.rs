@@ -1,8 +1,7 @@
 use iced::{
     Alignment, Border, Color, Element, Length, Padding,
-    widget::{button, column, container, image, row, space, text, text_input},
+    widget::{button, column, container, image, row, space, text},
 };
-use regex::Regex;
 
 use crate::frontend::{
     loading_spinners,
