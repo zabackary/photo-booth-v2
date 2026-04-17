@@ -8,6 +8,7 @@ use iced::{
 pub enum SetupMessage {
     StartPressed,
     BackendInitialized(Result<crate::backend::manager::BackendManager, String>),
+    AutoStart,
 }
 
 /// An action performed by an update to [`Setup`].
@@ -33,7 +34,7 @@ impl Setup {
                 config,
                 error: None,
             },
-            Task::none(),
+            Task::done(SetupMessage::AutoStart),
         )
     }
 
@@ -64,6 +65,10 @@ impl Setup {
             SetupMessage::BackendInitialized(Err(err)) => {
                 self.error = Some(err);
                 SetupAction::None
+            }
+            SetupMessage::AutoStart => {
+                log::info!("Auto-starting app");
+                SetupAction::Task(Task::done(SetupMessage::StartPressed))
             }
         }
     }
