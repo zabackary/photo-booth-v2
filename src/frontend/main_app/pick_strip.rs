@@ -159,8 +159,7 @@ impl PickStripItem {
         let now = Instant::now();
         float(
             image_widget(self.image.clone())
-                .opacity(self.selected_animation.interpolate(0.6, 1.0, now))
-                .border_radius(self.selected_animation.interpolate(12.0, 0.0, now)),
+                .opacity(self.selected_animation.interpolate(0.6, 1.0, now)),
         )
         .scale(self.selected_animation.interpolate(1.0, 1.1, now))
         .style(move |_theme| float::Style {
