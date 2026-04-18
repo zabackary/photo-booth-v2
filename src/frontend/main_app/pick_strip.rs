@@ -83,12 +83,14 @@ impl PickStrip {
             iced::keyboard::listen().filter_map(|event| {
                 if let iced::keyboard::Event::KeyPressed { key, .. } = event {
                     match key {
-                        iced::keyboard::Key::Named(iced::keyboard::key::Named::ArrowLeft) => {
-                            Some(PickStripMessage::Previous)
-                        }
-                        iced::keyboard::Key::Named(iced::keyboard::key::Named::ArrowRight) => {
-                            Some(PickStripMessage::Next)
-                        }
+                        iced::keyboard::Key::Named(
+                            iced::keyboard::key::Named::ArrowLeft
+                            | iced::keyboard::key::Named::ArrowUp,
+                        ) => Some(PickStripMessage::Previous),
+                        iced::keyboard::Key::Named(
+                            iced::keyboard::key::Named::ArrowRight
+                            | iced::keyboard::key::Named::ArrowDown,
+                        ) => Some(PickStripMessage::Next),
                         iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter)
                         | iced::keyboard::Key::Named(iced::keyboard::key::Named::Space) => {
                             Some(PickStripMessage::Finish)
