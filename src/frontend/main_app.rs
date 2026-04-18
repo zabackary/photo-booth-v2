@@ -350,7 +350,7 @@ impl MainApp {
                                 ]))
                             } else {
                                 // no printer or email, just show the QR code
-                                let (qr_code, qr_code_task) = qr_code::QrCode::new(
+                                self.page = MainAppPage::QrCode(qr_code::QrCode::new(
                                     iced::widget::image::Handle::from_rgba(
                                         strip.width(),
                                         strip.height(),
@@ -358,9 +358,8 @@ impl MainApp {
                                     ),
                                     self.manager.clone(),
                                     self.session.storage_handle.clone(),
-                                );
-                                self.page = MainAppPage::QrCode(qr_code);
-                                MainAppAction::Task(qr_code_task.map(MainAppMessage::QrCode))
+                                ));
+                                MainAppAction::None
                             }
                         }
                         pick_strip::PickStripAction::Task(task) => {
@@ -393,7 +392,7 @@ impl MainApp {
                                 self.page = MainAppPage::EmailEntry(email_entry);
                                 email_entry_task.map(MainAppMessage::EmailEntry)
                             } else {
-                                let (qr_code, qr_code_task) = qr_code::QrCode::new(
+                                self.page = MainAppPage::QrCode(qr_code::QrCode::new(
                                     iced::widget::image::Handle::from_rgba(
                                         strip.width(),
                                         strip.height(),
@@ -401,9 +400,8 @@ impl MainApp {
                                     ),
                                     self.manager.clone(),
                                     self.session.storage_handle.clone(),
-                                );
-                                self.page = MainAppPage::QrCode(qr_code);
-                                qr_code_task.map(MainAppMessage::QrCode)
+                                ));
+                                Task::none()
                             };
 
                             let printer_manager = self

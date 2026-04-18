@@ -40,7 +40,7 @@ impl QrCode {
         strip_handle: iced::widget::image::Handle,
         manager: crate::backend::manager::BackendManager,
         storage_handle: Option<crate::backend::storage::StorageHandle>,
-    ) -> (Self, iced::Task<QrCodeMessage>) {
+    ) -> Self {
         let mut new = Self {
             qr_code_data: None,
             show_qr_code: true,
@@ -50,7 +50,7 @@ impl QrCode {
         if let Some(storage_handle) = storage_handle {
             new.on_storage_finish(storage_handle);
         }
-        (new, iced::Task::none())
+        new
     }
 
     pub fn on_storage_finish(&mut self, storage_handle: crate::backend::storage::StorageHandle) {
