@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
             let input_photo = image::open(&input)
                 .with_context(|| format!("failed to open input photo at path: {}", &input))?
                 .to_rgb8();
-            let processed_photo = backend::manager::printer::preprocess_photo(
+            let (processed_photo, _) = backend::manager::printer::preprocess_photo(
                 config
                     .printer
                     .as_ref()

@@ -102,21 +102,33 @@ impl PrinterManager {
     }
 
     pub async fn print(&self, photo: image::RgbaImage, quantity: u32) -> Result<(), anyhow::Error> {
-        for i in 0..quantity {
-            log::info!("Printing copy {}/{}", i + 1, quantity);
-            self.print_single(photo.clone()).await?;
+        let photo: image::RgbImage = photo.convert();
+        let (processed_photo, copies_per_output) = preprocess_photo(*self.config, photo);
+        let true_quantity = (quantity as f32 / copies_per_output as f32).ceil() as u32;
+        if true_quantity != quantity {
+            log::info!(
+                "Auto-formatting resulted in {} copies per output, so printing {} copies instead of requested {}",
+                copies_per_output,
+                true_quantity,
+                quantity
+            );
+        }
+        for i in 0..true_quantity {
+            log::info!("Printing copy {}/{}", i + 1, true_quantity);
+            self.print_single(&processed_photo).await?;
         }
         Ok(())
     }
 
     /// Print a single photo
-    async fn print_single(&self, photo: image::RgbaImage) -> Result<(), anyhow::Error> {
+    async fn print_single(
+        &self,
+        processed_photo: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
+    ) -> Result<(), anyhow::Error> {
         let backend = self.backend.lock().await;
-        let photo: image::RgbImage = photo.convert();
         let mut printer = self.current_printer.lock().await;
-        let processed_photo = preprocess_photo(*self.config, photo);
         loop {
-            match printer.print(&processed_photo).await {
+            match printer.print(processed_photo).await {
                 Ok(()) => break,
                 Err(e) => {
                     log::error!("Failed to print photo: {:?}", e);
@@ -143,7 +155,12 @@ impl PrinterManager {
 }
 
 /// Preprocess a photo for printing according to the [`PrinterManagerConfig`]
-pub fn preprocess_photo(config: PrinterManagerConfig, photo: image::RgbImage) -> image::RgbImage {
+pub fn preprocess_photo(
+    config: PrinterManagerConfig,
+    photo: image::RgbImage,
+) -> (image::RgbImage, u32) {
+    let mut copies_per_output = 1u32;
+
     // Step 1: Optionally convert into a "strip" by duplicating the image
     // horizontally or vertically when the photo is very skinny/wide.
     let mut work = if config.auto_format {
@@ -154,12 +171,14 @@ pub fn preprocess_photo(config: PrinterManagerConfig, photo: image::RgbImage) ->
             let mut strip = image::RgbImage::new(photo.width() * 2, photo.height());
             image::imageops::overlay(&mut strip, &photo, 0, 0);
             image::imageops::overlay(&mut strip, &photo, photo.width() as i64, 0);
+            copies_per_output = 2;
             strip
         } else if (1.0 / photo_ar) < (1.0 / canvas_ar) / 2.0 {
             // very wide: duplicate top/bottom
             let mut strip = image::RgbImage::new(photo.width(), photo.height() * 2);
             image::imageops::overlay(&mut strip, &photo, 0, 0);
             image::imageops::overlay(&mut strip, &photo, 0, photo.height() as i64);
+            copies_per_output = 2;
             strip
         } else {
             photo
@@ -219,5 +238,5 @@ pub fn preprocess_photo(config: PrinterManagerConfig, photo: image::RgbImage) ->
     let off_y = (canvas_h as i64 - scaled.height() as i64) / 2;
     image::imageops::overlay(&mut final_image, &scaled, off_x, off_y);
 
-    final_image
+    (final_image, copies_per_output)
 }
