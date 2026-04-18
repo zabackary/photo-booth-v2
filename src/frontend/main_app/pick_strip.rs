@@ -81,7 +81,7 @@ impl PickStrip {
     pub fn subscription(&self) -> iced::Subscription<PickStripMessage> {
         iced::Subscription::batch([
             iced::keyboard::listen().filter_map(|event| {
-                if let iced::keyboard::Event::KeyPressed { key, .. } = event {
+                if let iced::keyboard::Event::KeyReleased { key, .. } = event {
                     match key {
                         iced::keyboard::Key::Named(
                             iced::keyboard::key::Named::ArrowLeft
