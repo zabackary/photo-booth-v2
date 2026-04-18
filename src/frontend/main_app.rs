@@ -75,14 +75,14 @@ pub struct Session {
     num_copies: u32,
 }
 
-impl Default for Session {
-    fn default() -> Self {
+impl Session {
+    fn new(config: &'static crate::config::Config) -> Self {
         Self {
             captured_photos: Vec::new(),
             selected_strip: None,
             strips: None,
             storage_handle: None,
-            num_copies: 1,
+            num_copies: config.printer.as_ref().map_or(0, |p| p.copies),
         }
     }
 }
@@ -107,7 +107,7 @@ impl MainApp {
             Self {
                 feed,
                 page: MainAppPage::Preview(preview::Preview::new()),
-                session: Session::default(),
+                session: Session::new(config),
                 manager,
                 config,
             },
@@ -356,6 +356,7 @@ impl MainApp {
                                         strip.height(),
                                         strip.clone().into_raw(),
                                     ),
+                                    0, // no copies since no printer
                                     self.manager.clone(),
                                     self.session.storage_handle.clone(),
                                 ));
@@ -427,6 +428,7 @@ impl MainApp {
                                         strip.height(),
                                         strip.clone().into_raw(),
                                     ),
+                                    self.session.num_copies,
                                     self.manager.clone(),
                                     self.session.storage_handle.clone(),
                                 ));
@@ -493,7 +495,7 @@ impl MainApp {
                     match qr_code.update(message) {
                         qr_code::QrCodeAction::Continue => {
                             self.page = MainAppPage::Preview(preview::Preview::new());
-                            self.session = Session::default();
+                            self.session = Session::new(self.config);
                             MainAppAction::None
                         }
                         qr_code::QrCodeAction::Task(task) => MainAppAction::Task(task.map(MainAppMessage::QrCode)),
@@ -508,7 +510,7 @@ impl MainApp {
                     match emailing.update(message) {
                         emailing::EmailingAction::Complete => {
                             self.page = MainAppPage::Preview(preview::Preview::new());
-                            self.session = Session::default();
+                            self.session = Session::new(self.config);
                             MainAppAction::None
                         }
                         emailing::EmailingAction::Task(task) => MainAppAction::Task(task.map(MainAppMessage::Emailing)),
@@ -523,7 +525,7 @@ impl MainApp {
                     match error.update(message) {
                         error::ErrorAction::Complete => {
                             self.page = MainAppPage::Preview(preview::Preview::new());
-                            self.session = Session::default();
+                            self.session = Session::new(self.config);
                             MainAppAction::None
                         }
                         error::ErrorAction::Task(task) => MainAppAction::Task(task.map(MainAppMessage::Error)),

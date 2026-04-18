@@ -9,8 +9,7 @@ use crate::frontend::{
 };
 
 const QR_CODE_QUIET_ZONE: usize = 2;
-pub const QR_CODE_VERSION: iced::widget::qr_code::Version =
-    iced::widget::qr_code::Version::Normal(5);
+pub const QR_CODE_VERSION: iced::widget::qr_code::Version = iced::widget::qr_code::Version::Normal(5);
 const QR_CODE_SIDE_LENGTH: usize = QR_CODE_QUIET_ZONE * 2 + (5 * 4 + 17);
 
 #[derive(Debug)]
@@ -18,6 +17,7 @@ pub struct QrCode {
     qr_code_data: Option<iced::widget::qr_code::Data>,
     show_qr_code: bool,
     strip_handle: iced::widget::image::Handle,
+    print_quantity: u32,
 
     manager: crate::backend::manager::BackendManager,
 }
@@ -38,6 +38,7 @@ pub enum QrCodeAction {
 impl QrCode {
     pub fn new(
         strip_handle: iced::widget::image::Handle,
+        print_quantity: u32,
         manager: crate::backend::manager::BackendManager,
         storage_handle: Option<crate::backend::storage::StorageHandle>,
     ) -> Self {
@@ -45,6 +46,7 @@ impl QrCode {
             qr_code_data: None,
             show_qr_code: true,
             strip_handle,
+            print_quantity,
             manager,
         };
         if let Some(storage_handle) = storage_handle {
@@ -81,10 +83,7 @@ impl QrCode {
     pub fn subscription(&self) -> iced::Subscription<QrCodeMessage> {
         iced::keyboard::listen().filter_map(|event| match event {
             iced::keyboard::Event::KeyReleased {
-                key:
-                    iced::keyboard::Key::Named(
-                        iced::keyboard::key::Named::Enter | iced::keyboard::key::Named::Space,
-                    ),
+                key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter | iced::keyboard::key::Named::Space),
                 ..
             } => Some(QrCodeMessage::ContinuePress),
             _ => None,
@@ -95,20 +94,35 @@ impl QrCode {
         full_title_overlay(
             row([
                 column([
-                    title_text("Your photos are printing").width(Length::Shrink).into(),
-                    supporting_text(if self.show_qr_code {
-                        "They'll be done soon. You can also scan the QR code below to download your original photos."
+                    title_text(if self.print_quantity > 0 {
+                        "Your photos are printing"
                     } else {
-                        "They'll be done soon!"
-                    }).width(Length::Shrink).into(),
+                        "You're almost done"
+                    })
+                    .width(Length::Shrink)
+                    .into(),
+                    supporting_text(match (self.show_qr_code, self.print_quantity > 0) {
+                        (true, true) => "They'll be done soon. You can also scan the QR code below to download your original photos.",
+                        (true, false) => "Scan the QR code below to download your original photos.",
+                        (false, true) => "They'll be done soon!",
+                        (false, false) => "Your photos have been saved.",
+                    })
+                    .width(Length::Shrink)
+                    .into(),
                     space().height(12.0).into(),
-                    if let Some(ref qr_code_data) = self.qr_code_data && self.show_qr_code {
-                        container(
-                            iced::widget::qr_code(qr_code_data).cell_size(8).style(|_|iced::widget::qr_code::Style {
+                    if let Some(ref qr_code_data) = self.qr_code_data
+                        && self.show_qr_code
+                    {
+                        container(iced::widget::qr_code(qr_code_data).cell_size(8).style(|_| {
+                            iced::widget::qr_code::Style {
                                 background: Color::WHITE,
-                                cell: Color::BLACK
-                            })
-                        ).width((QR_CODE_SIDE_LENGTH * 8) as f32).height((QR_CODE_SIDE_LENGTH * 8) as f32).padding(8).into()
+                                cell: Color::BLACK,
+                            }
+                        }))
+                        .width((QR_CODE_SIDE_LENGTH * 8) as f32)
+                        .height((QR_CODE_SIDE_LENGTH * 8) as f32)
+                        .padding(8)
+                        .into()
                     } else if self.show_qr_code {
                         container(
                             column([
@@ -117,27 +131,34 @@ impl QrCode {
                                     .bar_height(3.0)
                                     .easing(&loading_spinners::easing::STANDARD_DECELERATE)
                                     .into(),
-                                iced::widget::text("Uploading and generating code...").into()
+                                iced::widget::text("Uploading and generating code...").into(),
                             ])
                             .align_x(iced::Alignment::Center)
-                            .spacing(8)
-                        ).style(|_| container::background(Color::WHITE)).padding(8).center((QR_CODE_SIDE_LENGTH * 8) as f32).into()
+                            .spacing(8),
+                        )
+                        .style(|_| container::background(Color::WHITE))
+                        .padding(8)
+                        .center((QR_CODE_SIDE_LENGTH * 8) as f32)
+                        .into()
                     } else {
                         text("Unfortunately, a QR code is not available.").into()
                     },
                     space().height(12.0).into(),
-                    button(text(
-                        "Press [Enter] to continue")
-                    .size(24))
-                    .style(|theme: &iced::Theme, status| {
-                        let mut normal = button::primary(theme, status);
-                        normal.border.radius = 999.0.into();
-                        normal
-                    })
-                    .padding(Padding { bottom: 10.0, left: 24.0, right: 24.0, top: 10.0 })
-                    .on_press_maybe((!self.manager.storage_manager.busy()).then_some(QrCodeMessage::ContinuePress))
-                    .padding(10)
-                    .into()
+                    button(text("Press [Enter] to continue").size(24))
+                        .style(|theme: &iced::Theme, status| {
+                            let mut normal = button::primary(theme, status);
+                            normal.border.radius = 999.0.into();
+                            normal
+                        })
+                        .padding(Padding {
+                            bottom: 10.0,
+                            left: 24.0,
+                            right: 24.0,
+                            top: 10.0,
+                        })
+                        .on_press_maybe((!self.manager.storage_manager.busy()).then_some(QrCodeMessage::ContinuePress))
+                        .padding(10)
+                        .into(),
                 ])
                 .padding(100)
                 .align_x(iced::Alignment::Center)
@@ -154,11 +175,10 @@ impl QrCode {
                             .into(),
                     ])
                     .align_x(iced::Alignment::Center)
-                    .padding(30)
-                ).style(|theme: &iced::Theme| container::Style {
-                    background: Some(
-                        theme.extended_palette().background.base.color.scale_alpha(0.8).into(),
-                    ),
+                    .padding(30),
+                )
+                .style(|theme: &iced::Theme| container::Style {
+                    background: Some(theme.extended_palette().background.base.color.scale_alpha(0.8).into()),
                     border: Border::default().rounded(iced::border::Radius {
                         bottom_left: 24.0,
                         bottom_right: 0.0,
@@ -166,7 +186,8 @@ impl QrCode {
                         top_right: 0.0,
                     }),
                     ..Default::default()
-                }).into()
+                })
+                .into(),
             ])
             .align_y(iced::Alignment::Center),
         )
