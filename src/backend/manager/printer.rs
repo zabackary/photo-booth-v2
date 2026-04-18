@@ -102,6 +102,10 @@ impl PrinterManager {
     }
 
     pub async fn print(&self, photo: image::RgbaImage, quantity: u32) -> Result<(), anyhow::Error> {
+        if quantity == 0 {
+            log::trace!("Print quantity is 0, skipping printing");
+            return Ok(());
+        }
         let photo: image::RgbImage = photo.convert();
         let (processed_photo, copies_per_output) = preprocess_photo(*self.config, photo);
         let true_quantity = (quantity as f32 / copies_per_output as f32).ceil() as u32;
@@ -115,7 +119,7 @@ impl PrinterManager {
         }
         let mut backend = self.backend.lock().await;
         for i in 0..true_quantity {
-            log::info!("Printing copy {}/{}", i + 1, true_quantity);
+            log::debug!("Printing copy {}/{}", i + 1, true_quantity);
             self.print_single(&mut backend, &processed_photo).await?;
         }
         std::mem::drop(backend); // hold on to it until here to print all copies before allowing any other print jobs to start
