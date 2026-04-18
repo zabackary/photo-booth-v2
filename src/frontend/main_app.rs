@@ -10,6 +10,7 @@ mod animations;
 
 mod capture_photos;
 mod capture_photos_prepare;
+mod copies_prompt;
 mod email_entry;
 mod emailing;
 mod error;
@@ -27,6 +28,7 @@ enum MainAppPage {
     CapturePhotos(capture_photos::CapturePhotos),
     Rendering(rendering::Rendering),
     PickStrip(pick_strip::PickStrip),
+    CopiesPrompt(copies_prompt::CopiesPrompt),
     EmailEntry(email_entry::EmailEntry),
     QrCode(qr_code::QrCode),
     PrintPending(print_pending::PrintPending),
@@ -49,6 +51,7 @@ pub enum MainAppMessage {
     CapturePhotos(capture_photos::CapturePhotosMessage),
     Rendering(rendering::RenderingMessage),
     PickStrip(pick_strip::PickStripMessage),
+    CopiesPrompt(copies_prompt::CopiesPromptMessage),
     PrintPending(print_pending::PrintPendingMessage),
     EmailEntry(email_entry::EmailEntryMessage),
     QrCode(qr_code::QrCodeMessage),
@@ -116,9 +119,7 @@ impl MainApp {
         self.feed.update_options(
             if matches!(
                 self.page,
-                MainAppPage::CapturePhotosPrepare(_)
-                    | MainAppPage::CapturePhotos(_)
-                    | MainAppPage::Preview(_)
+                MainAppPage::CapturePhotosPrepare(_) | MainAppPage::CapturePhotos(_) | MainAppPage::Preview(_)
             ) {
                 CameraFeedOptions {
                     blur: 1.0,
@@ -147,10 +148,7 @@ impl MainApp {
                 }
                 Err(err) => {
                     log::error!("Error rendering photos: {:?}", err);
-                    self.page = MainAppPage::Error(error::Error::new(format!(
-                        "Failed to render photos: {}",
-                        err
-                    )));
+                    self.page = MainAppPage::Error(error::Error::new(format!("Failed to render photos: {}", err)));
                     MainAppAction::None
                 }
             },
@@ -167,10 +165,7 @@ impl MainApp {
                 }
                 Err(err) => {
                     log::error!("Error uploading strip: {:?}", err);
-                    self.page = MainAppPage::Error(error::Error::new(format!(
-                        "Failed to upload strip: {}",
-                        err
-                    )));
+                    self.page = MainAppPage::Error(error::Error::new(format!("Failed to upload strip: {}", err)));
                     MainAppAction::None
                 }
             },
@@ -202,10 +197,7 @@ impl MainApp {
                 }
                 Err(err) => {
                     log::error!("Error sending email: {:?}", err);
-                    self.page = MainAppPage::Error(error::Error::new(format!(
-                        "Failed to send email: {}",
-                        err
-                    )));
+                    self.page = MainAppPage::Error(error::Error::new(format!("Failed to send email: {}", err)));
                     MainAppAction::None
                 }
             },
@@ -215,13 +207,10 @@ impl MainApp {
             MainAppMessage::Preview(message) => {
                 if let MainAppPage::Preview(preview) = &mut self.page {
                     match preview.update(message) {
-                        preview::PreviewAction::Task(task) => {
-                            MainAppAction::Task(task.map(MainAppMessage::Preview))
-                        }
+                        preview::PreviewAction::Task(task) => MainAppAction::Task(task.map(MainAppMessage::Preview)),
                         preview::PreviewAction::Complete => {
-                            self.page = MainAppPage::CapturePhotosPrepare(
-                                capture_photos_prepare::CapturePhotosPrepare::new(),
-                            );
+                            self.page =
+                                MainAppPage::CapturePhotosPrepare(capture_photos_prepare::CapturePhotosPrepare::new());
                             MainAppAction::None
                         }
                         preview::PreviewAction::None => MainAppAction::None,
@@ -237,16 +226,13 @@ impl MainApp {
                             MainAppAction::Task(task.map(MainAppMessage::CapturePhotosPrepare))
                         }
                         capture_photos_prepare::CapturePhotosPrepareAction::Complete => {
-                            self.page =
-                                MainAppPage::CapturePhotos(capture_photos::CapturePhotos::new(
-                                    self.manager.clone(),
-                                    self.config,
-                                ));
+                            self.page = MainAppPage::CapturePhotos(capture_photos::CapturePhotos::new(
+                                self.manager.clone(),
+                                self.config,
+                            ));
                             MainAppAction::None
                         }
-                        capture_photos_prepare::CapturePhotosPrepareAction::None => {
-                            MainAppAction::None
-                        }
+                        capture_photos_prepare::CapturePhotosPrepareAction::None => MainAppAction::None,
                     }
                 } else {
                     MainAppAction::None
@@ -261,9 +247,7 @@ impl MainApp {
                             let renderer = self.manager.renderer_manager.clone();
                             MainAppAction::Task(iced::Task::perform(
                                 async move { renderer.render(photos).await },
-                                |result| {
-                                    MainAppMessage::OnRendered(result.map_err(|x| x.to_string()))
-                                },
+                                |result| MainAppMessage::OnRendered(result.map_err(|x| x.to_string())),
                             ))
                         }
                         capture_photos::CapturePhotosAction::Task(task) => {
@@ -299,9 +283,7 @@ impl MainApp {
                         pick_strip::PickStripAction::Complete { selection } => {
                             log::debug!("User selected strip {}", selection);
                             self.session.selected_strip = Some(selection);
-                            let strip = self.session.strips.as_ref().expect("no strips rendered")
-                                [selection]
-                                .clone();
+                            let strip = self.session.strips.as_ref().expect("no strips rendered")[selection].clone();
 
                             // upload
                             let manager = self.manager.clone();
@@ -322,17 +304,35 @@ impl MainApp {
                                 MainAppMessage::OnUploaded,
                             );
 
-                            // if there's a printer, wait for it
                             if let Some(printer_manager) = self.manager.printer_manager.clone() {
-                                self.page =
-                                    MainAppPage::PrintPending(print_pending::PrintPending::new());
-                                let print_task = iced::Task::perform(
-                                    async move {
-                                        printer_manager.wait().await;
-                                    },
-                                    |_| MainAppMessage::OnPrintWaitFinish,
-                                );
-                                MainAppAction::Task(iced::Task::batch([print_task, upload_task]))
+                                // if there's a printer, wait for it or ask how many copies
+                                let printer_config = self
+                                    .config
+                                    .printer
+                                    .as_ref()
+                                    .expect("no printer config despite printer manager");
+                                if printer_config.copies_prompt {
+                                    self.page = MainAppPage::CopiesPrompt(copies_prompt::CopiesPrompt::new(
+                                        iced::widget::image::Handle::from_rgba(
+                                            strip.width(),
+                                            strip.height(),
+                                            strip.clone().into_raw(),
+                                        ),
+                                        printer_config.copies,
+                                        printer_config.copies_min,
+                                        printer_config.copies_max,
+                                    ));
+                                    MainAppAction::Task(upload_task)
+                                } else {
+                                    self.page = MainAppPage::PrintPending(print_pending::PrintPending::new());
+                                    let print_task = iced::Task::perform(
+                                        async move {
+                                            printer_manager.wait().await;
+                                        },
+                                        |_| MainAppMessage::OnPrintWaitFinish,
+                                    );
+                                    MainAppAction::Task(iced::Task::batch([print_task, upload_task]))
+                                }
                             } else if self.manager.email_manager.is_some() {
                                 let (email_entry, email_entry_task) = email_entry::EmailEntry::new(
                                     iced::widget::image::Handle::from_rgba(
@@ -371,6 +371,35 @@ impl MainApp {
                     MainAppAction::None
                 }
             }
+            MainAppMessage::CopiesPrompt(message) => {
+                if let MainAppPage::CopiesPrompt(copies_prompt) = &mut self.page {
+                    match copies_prompt.update(message) {
+                        copies_prompt::CopiesPromptAction::Complete { copies } => {
+                            log::debug!("User selected {} copies", copies);
+                            self.session.num_copies = copies;
+                            self.page = MainAppPage::PrintPending(print_pending::PrintPending::new());
+                            let printer_manager = self
+                                .manager
+                                .printer_manager
+                                .clone()
+                                .expect("no printer manager despite copies prompt");
+                            let print_task = iced::Task::perform(
+                                async move {
+                                    printer_manager.wait().await;
+                                },
+                                |_| MainAppMessage::OnPrintWaitFinish,
+                            );
+                            MainAppAction::Task(print_task)
+                        }
+                        copies_prompt::CopiesPromptAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::CopiesPrompt))
+                        }
+                        copies_prompt::CopiesPromptAction::None => MainAppAction::None,
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            }
             MainAppMessage::PrintPending(message) => {
                 if let MainAppPage::PrintPending(print_pending) = &mut self.page {
                     match print_pending.update(message) {
@@ -404,21 +433,14 @@ impl MainApp {
                                 Task::none()
                             };
 
-                            let printer_manager = self
-                                .manager
-                                .printer_manager
-                                .clone()
-                                .expect("no printer manager");
+                            let printer_manager = self.manager.printer_manager.clone().expect("no printer manager");
                             let num_copies = self.session.num_copies;
                             let print_task = iced::Task::perform(
                                 async move {
-                                    printer_manager
-                                        .print(strip, num_copies)
-                                        .await
-                                        .map_err(|err| {
-                                            log::error!("Failed to print strip: {:?}", err);
-                                            err.to_string()
-                                        })
+                                    printer_manager.print(strip, num_copies).await.map_err(|err| {
+                                        log::error!("Failed to print strip: {:?}", err);
+                                        err.to_string()
+                                    })
                                 },
                                 MainAppMessage::OnPrintFinish,
                             );
@@ -439,11 +461,7 @@ impl MainApp {
                     match email_entry.update(message) {
                         email_entry::EmailEntryAction::Submit { emails } => {
                             log::debug!("User submitted emails: {:?}", emails);
-                            let storage_handle = self
-                                .session
-                                .storage_handle
-                                .clone()
-                                .expect("no storage handle");
+                            let storage_handle = self.session.storage_handle.clone().expect("no storage handle");
                             self.page = MainAppPage::Emailing(emailing::Emailing::new());
                             let manager = self.manager.clone();
                             MainAppAction::Task(iced::Task::perform(
@@ -478,9 +496,7 @@ impl MainApp {
                             self.session = Session::default();
                             MainAppAction::None
                         }
-                        qr_code::QrCodeAction::Task(task) => {
-                            MainAppAction::Task(task.map(MainAppMessage::QrCode))
-                        }
+                        qr_code::QrCodeAction::Task(task) => MainAppAction::Task(task.map(MainAppMessage::QrCode)),
                         qr_code::QrCodeAction::None => MainAppAction::None,
                     }
                 } else {
@@ -495,9 +511,7 @@ impl MainApp {
                             self.session = Session::default();
                             MainAppAction::None
                         }
-                        emailing::EmailingAction::Task(task) => {
-                            MainAppAction::Task(task.map(MainAppMessage::Emailing))
-                        }
+                        emailing::EmailingAction::Task(task) => MainAppAction::Task(task.map(MainAppMessage::Emailing)),
                         emailing::EmailingAction::None => MainAppAction::None,
                     }
                 } else {
@@ -512,9 +526,7 @@ impl MainApp {
                             self.session = Session::default();
                             MainAppAction::None
                         }
-                        error::ErrorAction::Task(task) => {
-                            MainAppAction::Task(task.map(MainAppMessage::Error))
-                        }
+                        error::ErrorAction::Task(task) => MainAppAction::Task(task.map(MainAppMessage::Error)),
                         error::ErrorAction::None => MainAppAction::None,
                     }
                 } else {
@@ -528,31 +540,24 @@ impl MainApp {
         iced::Subscription::batch([
             self.feed.subscription().map(MainAppMessage::CameraFeed),
             match &self.page {
-                MainAppPage::Preview(preview) => {
-                    preview.subscription().map(MainAppMessage::Preview)
-                }
+                MainAppPage::Preview(preview) => preview.subscription().map(MainAppMessage::Preview),
                 MainAppPage::QrCode(qr_code) => qr_code.subscription().map(MainAppMessage::QrCode),
                 MainAppPage::CapturePhotosPrepare(capture_photos_prepare) => capture_photos_prepare
                     .subscription()
                     .map(MainAppMessage::CapturePhotosPrepare),
-                MainAppPage::CapturePhotos(capture_photos) => capture_photos
-                    .subscription()
-                    .map(MainAppMessage::CapturePhotos),
-                MainAppPage::Rendering(rendering) => {
-                    rendering.subscription().map(MainAppMessage::Rendering)
+                MainAppPage::CapturePhotos(capture_photos) => {
+                    capture_photos.subscription().map(MainAppMessage::CapturePhotos)
                 }
-                MainAppPage::PickStrip(pick_strip) => {
-                    pick_strip.subscription().map(MainAppMessage::PickStrip)
+                MainAppPage::Rendering(rendering) => rendering.subscription().map(MainAppMessage::Rendering),
+                MainAppPage::PickStrip(pick_strip) => pick_strip.subscription().map(MainAppMessage::PickStrip),
+                MainAppPage::CopiesPrompt(copies_prompt) => {
+                    copies_prompt.subscription().map(MainAppMessage::CopiesPrompt)
                 }
-                MainAppPage::PrintPending(print_pending) => print_pending
-                    .subscription()
-                    .map(MainAppMessage::PrintPending),
-                MainAppPage::EmailEntry(email_entry) => {
-                    email_entry.subscription().map(MainAppMessage::EmailEntry)
+                MainAppPage::PrintPending(print_pending) => {
+                    print_pending.subscription().map(MainAppMessage::PrintPending)
                 }
-                MainAppPage::Emailing(emailing) => {
-                    emailing.subscription().map(MainAppMessage::Emailing)
-                }
+                MainAppPage::EmailEntry(email_entry) => email_entry.subscription().map(MainAppMessage::EmailEntry),
+                MainAppPage::Emailing(emailing) => emailing.subscription().map(MainAppMessage::Emailing),
                 MainAppPage::Error(error) => error.subscription().map(MainAppMessage::Error),
             },
         ])
@@ -611,24 +616,15 @@ impl MainApp {
                 .map(MainAppMessage::CameraFeed),
             match &self.page {
                 MainAppPage::Preview(preview) => preview.view().map(MainAppMessage::Preview),
-                MainAppPage::CapturePhotosPrepare(capture_photos_prepare) => capture_photos_prepare
-                    .view()
-                    .map(MainAppMessage::CapturePhotosPrepare),
-                MainAppPage::CapturePhotos(capture_photos) => {
-                    capture_photos.view().map(MainAppMessage::CapturePhotos)
+                MainAppPage::CapturePhotosPrepare(capture_photos_prepare) => {
+                    capture_photos_prepare.view().map(MainAppMessage::CapturePhotosPrepare)
                 }
-                MainAppPage::Rendering(rendering) => {
-                    rendering.view().map(MainAppMessage::Rendering)
-                }
-                MainAppPage::PickStrip(pick_strip) => {
-                    pick_strip.view().map(MainAppMessage::PickStrip)
-                }
-                MainAppPage::PrintPending(print_pending) => {
-                    print_pending.view().map(MainAppMessage::PrintPending)
-                }
-                MainAppPage::EmailEntry(email_entry) => {
-                    email_entry.view().map(MainAppMessage::EmailEntry)
-                }
+                MainAppPage::CapturePhotos(capture_photos) => capture_photos.view().map(MainAppMessage::CapturePhotos),
+                MainAppPage::Rendering(rendering) => rendering.view().map(MainAppMessage::Rendering),
+                MainAppPage::PickStrip(pick_strip) => pick_strip.view().map(MainAppMessage::PickStrip),
+                MainAppPage::CopiesPrompt(copies_prompt) => copies_prompt.view().map(MainAppMessage::CopiesPrompt),
+                MainAppPage::PrintPending(print_pending) => print_pending.view().map(MainAppMessage::PrintPending),
+                MainAppPage::EmailEntry(email_entry) => email_entry.view().map(MainAppMessage::EmailEntry),
                 MainAppPage::QrCode(qr_code) => qr_code.view().map(MainAppMessage::QrCode),
                 MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
                 MainAppPage::Error(error) => error.view().map(MainAppMessage::Error),

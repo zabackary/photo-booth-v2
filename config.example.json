@@ -12,6 +12,7 @@
     "scale": 100.0,
     "copiesPrompt": true,
     "copies": 2,
+    "copiesMin": 2,
     "copiesMax": 10
   },
   "email": {

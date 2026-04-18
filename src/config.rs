@@ -93,6 +93,9 @@ pub struct PrinterConfig {
     #[serde(default = "default_copies")]
     pub copies: u32,
 
+    /// Minimum number of copies to allow when prompting the user for how many copies to print
+    pub copies_min: Option<u32>,
+
     /// Maximum number of copies to allow when prompting the user for how many copies to print
     pub copies_max: Option<u32>,
 
