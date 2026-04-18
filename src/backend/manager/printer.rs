@@ -113,19 +113,21 @@ impl PrinterManager {
                 quantity
             );
         }
+        let mut backend = self.backend.lock().await;
         for i in 0..true_quantity {
             log::info!("Printing copy {}/{}", i + 1, true_quantity);
-            self.print_single(&processed_photo).await?;
+            self.print_single(&mut backend, &processed_photo).await?;
         }
+        std::mem::drop(backend); // hold on to it until here to print all copies before allowing any other print jobs to start
         Ok(())
     }
 
     /// Print a single photo
     async fn print_single(
         &self,
+        backend: &mut Box<dyn crate::backend::printer::PrinterBackend>,
         processed_photo: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
     ) -> Result<(), anyhow::Error> {
-        let backend = self.backend.lock().await;
         let mut printer = self.current_printer.lock().await;
         loop {
             match printer.print(processed_photo).await {
@@ -149,16 +151,12 @@ impl PrinterManager {
                 }
             }
         }
-        std::mem::drop(backend); // hold on to it until here
         Ok(())
     }
 }
 
 /// Preprocess a photo for printing according to the [`PrinterManagerConfig`]
-pub fn preprocess_photo(
-    config: PrinterManagerConfig,
-    photo: image::RgbImage,
-) -> (image::RgbImage, u32) {
+pub fn preprocess_photo(config: PrinterManagerConfig, photo: image::RgbImage) -> (image::RgbImage, u32) {
     let mut copies_per_output = 1u32;
 
     // Step 1: Optionally convert into a "strip" by duplicating the image
@@ -208,12 +206,7 @@ pub fn preprocess_photo(
     let scale = (canvas_w as f32 / img_w).min(canvas_h as f32 / img_h);
     let target_w = (img_w * scale).round().max(1.0) as u32;
     let target_h = (img_h * scale).round().max(1.0) as u32;
-    let resized = image::imageops::resize(
-        &work,
-        target_w,
-        target_h,
-        image::imageops::FilterType::Lanczos3,
-    );
+    let resized = image::imageops::resize(&work, target_w, target_h, image::imageops::FilterType::Lanczos3);
 
     // Center the resized image on a white canvas of the configured size
     let mut canvas = image::RgbImage::from_pixel(canvas_w, canvas_h, image::Rgb([255, 255, 255]));
@@ -226,14 +219,8 @@ pub fn preprocess_photo(
     // resolution while simulating a physical scale change.
     let scaled_w = ((canvas_w as f32) * config.scale / 100.0).round().max(1.0) as u32;
     let scaled_h = ((canvas_h as f32) * config.scale / 100.0).round().max(1.0) as u32;
-    let scaled = image::imageops::resize(
-        &canvas,
-        scaled_w,
-        scaled_h,
-        image::imageops::FilterType::Lanczos3,
-    );
-    let mut final_image =
-        image::RgbImage::from_pixel(canvas_w, canvas_h, image::Rgb([255, 255, 255]));
+    let scaled = image::imageops::resize(&canvas, scaled_w, scaled_h, image::imageops::FilterType::Lanczos3);
+    let mut final_image = image::RgbImage::from_pixel(canvas_w, canvas_h, image::Rgb([255, 255, 255]));
     let off_x = (canvas_w as i64 - scaled.width() as i64) / 2;
     let off_y = (canvas_h as i64 - scaled.height() as i64) / 2;
     image::imageops::overlay(&mut final_image, &scaled, off_x, off_y);
