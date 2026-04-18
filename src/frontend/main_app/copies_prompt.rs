@@ -129,7 +129,7 @@ impl CopiesPrompt {
         full_title_overlay(
             row([
                 column([
-                    title_text("How many copies?").width(Length::Shrink).into(),
+                    title_text("How many prints do you want?").width(Length::Shrink).into(),
                     supporting_text(
                         "Use arrow keys to adjust the number of copies. Additional copies may incur extra costs.",
                     )
@@ -153,8 +153,16 @@ impl CopiesPrompt {
                         .center_x(100.0)
                         .center_y(140.0)
                         .style(|theme: &iced::Theme| container::Style {
-                            background: Some(theme.extended_palette().primary.base.color.into()),
-                            text_color: Some(theme.extended_palette().primary.base.text),
+                            background: Some(if self.copies > 0 {
+                                theme.extended_palette().primary.base.color.into()
+                            } else {
+                                theme.extended_palette().primary.weak.color.into()
+                            }),
+                            text_color: Some(if self.copies > 0 {
+                                theme.extended_palette().primary.base.text
+                            } else {
+                                theme.extended_palette().primary.weak.text
+                            }),
                             border: Border {
                                 radius: 12.0.into(),
                                 ..Default::default()
@@ -176,6 +184,11 @@ impl CopiesPrompt {
                     .translate(|_, _| Vector::new(0.0, self.down_arrow_animation.value() * 20.0))
                     .scale(self.down_arrow_animation.value() * 0.2 + 1.0)
                     .into(),
+                    if self.min_copies.unwrap_or(1) == 0 {
+                        text("If you select 0 copies, you can still download your photo.").into()
+                    } else {
+                        space().into()
+                    },
                     space().height(12.0).into(),
                     button(text("Press [Enter] to confirm").size(24))
                         .style(|theme: &iced::Theme, status| {
