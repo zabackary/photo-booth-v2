@@ -11,7 +11,8 @@
     "verticalResolution": 1746,
     "scale": 100.0,
     "copiesPrompt": true,
-    "copies": 2
+    "copies": 2,
+    "copiesMax": 10
   },
   "email": {
     "type": "mock"

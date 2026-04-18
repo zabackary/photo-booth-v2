@@ -89,9 +89,12 @@ pub struct PrinterConfig {
     /// Whether to prompt the user to choose how many copies to print
     pub copies_prompt: bool,
 
-    /// Number of copies to print for each photo strip.
+    /// Default number of copies to print for each photo strip.
     #[serde(default = "default_copies")]
     pub copies: u32,
+
+    /// Maximum number of copies to allow when prompting the user for how many copies to print
+    pub copies_max: Option<u32>,
 
     /// Whether to automatically duplicate a photo strip with a aspect ratio
     /// less than half of the width of the paper to fill the paper when printing
