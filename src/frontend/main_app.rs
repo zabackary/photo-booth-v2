@@ -1,4 +1,7 @@
-use iced::{ContentFit, Element, Task};
+use iced::{
+    Alignment, ContentFit, Element, Task,
+    widget::{row, text},
+};
 use image::RgbaImage;
 
 use super::camera_feed::{CameraFeed, CameraFeedOptions};
@@ -631,6 +634,23 @@ impl MainApp {
                 MainAppPage::QrCode(qr_code) => qr_code.view().map(MainAppMessage::QrCode),
                 MainAppPage::Emailing(emailing) => emailing.view().map(MainAppMessage::Emailing),
                 MainAppPage::Error(error) => error.view().map(MainAppMessage::Error),
+            },
+            if self.manager.storage_manager.busy() {
+                status_overlay::status_overlay(
+                    row([
+                        super::loading_spinners::Circular::new()
+                            .size(30.0)
+                            .bar_height(3.0)
+                            .easing(&super::loading_spinners::easing::STANDARD_DECELERATE)
+                            .into(),
+                        text("Uploading photos in the background...").into(),
+                    ])
+                    .spacing(8)
+                    .align_y(Alignment::Center),
+                )
+                .into()
+            } else {
+                iced::widget::Space::new().into()
             },
             iced::widget::bottom_right(iced::widget::text(info).size(12))
                 .padding(4)
