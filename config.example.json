@@ -9,7 +9,9 @@
     "autoFormat": true,
     "horizontalResolution": 1179,
     "verticalResolution": 1746,
-    "scale": 100.0
+    "scale": 100.0,
+    "copiesPrompt": true,
+    "copies": 2
   },
   "email": {
     "type": "mock"

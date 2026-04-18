@@ -86,6 +86,13 @@ pub struct PrinterConfig {
     #[serde(flatten)]
     pub backend: PrinterBackendConfig,
 
+    /// Whether to prompt the user to choose how many copies to print
+    pub copies_prompt: bool,
+
+    /// Number of copies to print for each photo strip.
+    #[serde(default = "default_copies")]
+    pub copies: u32,
+
     /// Whether to automatically duplicate a photo strip with a aspect ratio
     /// less than half of the width of the paper to fill the paper when printing
     pub auto_format: bool,
@@ -110,6 +117,10 @@ pub struct PrinterConfig {
     /// actual print will be scaled by this factor
     #[serde(default = "default_scale")]
     pub scale: f32,
+}
+
+fn default_copies() -> u32 {
+    1
 }
 
 fn default_scale() -> f32 {
