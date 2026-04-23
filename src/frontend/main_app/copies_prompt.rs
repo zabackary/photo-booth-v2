@@ -68,9 +68,10 @@ impl CopiesPrompt {
     pub fn update(&mut self, message: CopiesPromptMessage) -> CopiesPromptAction {
         match message {
             CopiesPromptMessage::ChangeCopies(delta) => {
-                let new_copies = (self.copies as i32 + delta)
-                    .max(self.min_copies.unwrap_or(1) as i32)
-                    .min(self.max_copies.unwrap_or(u32::MAX) as i32) as u32;
+                let new_copies = (self.copies as i32 + delta).clamp(
+                    self.min_copies.map_or(1, |x| x as i32),
+                    self.max_copies.map_or(i32::MAX, |x| x as i32),
+                ) as u32;
                 if new_copies > self.copies {
                     self.up_arrow_animation = arrow_slide_animation().begin_animation();
                 } else if new_copies < self.copies {
@@ -79,7 +80,9 @@ impl CopiesPrompt {
                 self.copies = new_copies;
                 CopiesPromptAction::None
             }
-            CopiesPromptMessage::ContinuePress => CopiesPromptAction::Complete { copies: self.copies },
+            CopiesPromptMessage::ContinuePress => CopiesPromptAction::Complete {
+                copies: self.copies,
+            },
             CopiesPromptMessage::Animate => {
                 self.up_arrow_animation.update_with_time(Instant::now());
                 self.down_arrow_animation.update_with_time(Instant::now());
@@ -89,40 +92,41 @@ impl CopiesPrompt {
     }
 
     pub fn subscription(&self) -> iced::Subscription<CopiesPromptMessage> {
-        iced::Subscription::batch(
-            [
-                iced::keyboard::listen().filter_map(|event| match event {
-                    iced::keyboard::Event::KeyReleased {
-                        key:
-                            iced::keyboard::Key::Named(
-                                iced::keyboard::key::Named::Enter | iced::keyboard::key::Named::Space,
-                            ),
-                        ..
-                    } => Some(CopiesPromptMessage::ContinuePress),
-                    iced::keyboard::Event::KeyReleased {
-                        key:
-                            iced::keyboard::Key::Named(
-                                iced::keyboard::key::Named::ArrowUp | iced::keyboard::key::Named::ArrowRight,
-                            ),
-                        ..
-                    } => Some(CopiesPromptMessage::ChangeCopies(1)),
-                    iced::keyboard::Event::KeyReleased {
-                        key:
-                            iced::keyboard::Key::Named(
-                                iced::keyboard::key::Named::ArrowDown | iced::keyboard::key::Named::ArrowLeft,
-                            ),
-                        ..
-                    } => Some(CopiesPromptMessage::ChangeCopies(-1)),
-                    _ => None,
-                }),
-                if self.up_arrow_animation.status().is_animating() || self.down_arrow_animation.status().is_animating()
-                {
-                    iced::window::frames().map(|_| CopiesPromptMessage::Animate)
-                } else {
-                    iced::Subscription::none()
-                },
-            ],
-        )
+        iced::Subscription::batch([
+            iced::keyboard::listen().filter_map(|event| match event {
+                iced::keyboard::Event::KeyReleased {
+                    key:
+                        iced::keyboard::Key::Named(
+                            iced::keyboard::key::Named::Enter | iced::keyboard::key::Named::Space,
+                        ),
+                    ..
+                } => Some(CopiesPromptMessage::ContinuePress),
+                iced::keyboard::Event::KeyReleased {
+                    key:
+                        iced::keyboard::Key::Named(
+                            iced::keyboard::key::Named::ArrowUp
+                            | iced::keyboard::key::Named::ArrowRight,
+                        ),
+                    ..
+                } => Some(CopiesPromptMessage::ChangeCopies(1)),
+                iced::keyboard::Event::KeyReleased {
+                    key:
+                        iced::keyboard::Key::Named(
+                            iced::keyboard::key::Named::ArrowDown
+                            | iced::keyboard::key::Named::ArrowLeft,
+                        ),
+                    ..
+                } => Some(CopiesPromptMessage::ChangeCopies(-1)),
+                _ => None,
+            }),
+            if self.up_arrow_animation.status().is_animating()
+                || self.down_arrow_animation.status().is_animating()
+            {
+                iced::window::frames().map(|_| CopiesPromptMessage::Animate)
+            } else {
+                iced::Subscription::none()
+            },
+        ])
     }
 
     pub fn view<'a>(&'a self) -> Element<'a, CopiesPromptMessage> {
