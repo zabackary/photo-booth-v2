@@ -91,8 +91,12 @@ impl CapturePreviewAnimation {
                 background_opacity,
             } = self.timeline.borrow().value();
 
-            let image_width = width_scale * size.width * IMAGE_RELATIVE_SIZE;
-            let image_height = image_width / self.photo_aspect_ratio;
+            let mut image_width = width_scale * size.width * IMAGE_RELATIVE_SIZE;
+            let mut image_height = image_width / self.photo_aspect_ratio;
+            if image_height > size.height * IMAGE_RELATIVE_SIZE {
+                image_height = size.height * IMAGE_RELATIVE_SIZE;
+                image_width = image_height * self.photo_aspect_ratio;
+            }
 
             let remaining_vertical_space = size.height - image_height;
 
