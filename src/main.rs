@@ -61,11 +61,10 @@ fn main() -> anyhow::Result<()> {
                 .with_context(|| format!("failed to open input photo at path: {}", &input))?
                 .to_rgb8();
             let (processed_photo, _) = backend::manager::printer::preprocess_photo(
-                config
+                &config
                     .printer
                     .as_ref()
                     .ok_or(anyhow::anyhow!("no printer config"))?
-                    .clone()
                     .into(),
                 input_photo,
             );

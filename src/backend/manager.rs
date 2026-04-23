@@ -146,15 +146,7 @@ impl BackendManager {
                             as Box<dyn PrinterBackend>
                     }
                 };
-                Some((
-                    backend,
-                    printer::PrinterManagerConfig {
-                        auto_format: config_printer.auto_format,
-                        horizontal_resolution: config_printer.horizontal_resolution,
-                        vertical_resolution: config_printer.vertical_resolution,
-                        scale: config_printer.scale,
-                    },
-                ))
+                Some((backend, config_printer.into()))
             }
             None => None,
         };

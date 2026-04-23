@@ -13,8 +13,8 @@ pub struct PrinterManager {
     config: Arc<PrinterManagerConfig>,
 }
 
-/// Configration for the printer manager
-#[derive(Debug, Clone, Copy)]
+/// Configuration for the printer manager
+#[derive(Debug, Clone)]
 pub struct PrinterManagerConfig {
     /// Whether to automatically duplicate a photo strip with a aspect ratio
     /// less than half of the width of the paper to fill the paper when printing
@@ -39,15 +39,19 @@ pub struct PrinterManagerConfig {
     /// The output resolution sent to the printer will be the same, but the
     /// actual print will be scaled by this factor
     pub scale: f32,
+
+    /// A file to log print quantities to for billing or analytics purposes.
+    pub print_log_file: Option<std::path::PathBuf>,
 }
 
-impl From<PrinterConfig> for PrinterManagerConfig {
-    fn from(config: PrinterConfig) -> Self {
+impl From<&PrinterConfig> for PrinterManagerConfig {
+    fn from(config: &PrinterConfig) -> Self {
         PrinterManagerConfig {
             auto_format: config.auto_format,
             horizontal_resolution: config.horizontal_resolution,
             vertical_resolution: config.vertical_resolution,
             scale: config.scale,
+            print_log_file: config.print_log_file.clone(),
         }
     }
 }
@@ -102,12 +106,25 @@ impl PrinterManager {
     }
 
     pub async fn print(&self, photo: image::RgbaImage, quantity: u32) -> Result<(), anyhow::Error> {
+        // Log the print job to the print log file, if configured
+        if let Some(log_file) = &self.config.print_log_file
+            && let Err(e) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(log_file)
+                .and_then(|mut file| {
+                    use std::io::Write as _;
+                    writeln!(file, "{},{}", chrono::Utc::now().to_rfc3339(), quantity)
+                })
+        {
+            log::error!("Failed to log print job to file {:?}: {:?}", log_file, e);
+        }
         if quantity == 0 {
             log::trace!("Print quantity is 0, skipping printing");
             return Ok(());
         }
         let photo: image::RgbImage = photo.convert();
-        let (processed_photo, copies_per_output) = preprocess_photo(*self.config, photo);
+        let (processed_photo, copies_per_output) = preprocess_photo(&self.config, photo);
         let true_quantity = (quantity as f32 / copies_per_output as f32).ceil() as u32;
         if true_quantity != quantity {
             log::info!(
@@ -160,7 +177,10 @@ impl PrinterManager {
 }
 
 /// Preprocess a photo for printing according to the [`PrinterManagerConfig`]
-pub fn preprocess_photo(config: PrinterManagerConfig, photo: image::RgbImage) -> (image::RgbImage, u32) {
+pub fn preprocess_photo(
+    config: &PrinterManagerConfig,
+    photo: image::RgbImage,
+) -> (image::RgbImage, u32) {
     let mut copies_per_output = 1u32;
 
     // Step 1: Optionally convert into a "strip" by duplicating the image
@@ -210,7 +230,12 @@ pub fn preprocess_photo(config: PrinterManagerConfig, photo: image::RgbImage) ->
     let scale = (canvas_w as f32 / img_w).min(canvas_h as f32 / img_h);
     let target_w = (img_w * scale).round().max(1.0) as u32;
     let target_h = (img_h * scale).round().max(1.0) as u32;
-    let resized = image::imageops::resize(&work, target_w, target_h, image::imageops::FilterType::Lanczos3);
+    let resized = image::imageops::resize(
+        &work,
+        target_w,
+        target_h,
+        image::imageops::FilterType::Lanczos3,
+    );
 
     // Center the resized image on a white canvas of the configured size
     let mut canvas = image::RgbImage::from_pixel(canvas_w, canvas_h, image::Rgb([255, 255, 255]));
@@ -223,8 +248,14 @@ pub fn preprocess_photo(config: PrinterManagerConfig, photo: image::RgbImage) ->
     // resolution while simulating a physical scale change.
     let scaled_w = ((canvas_w as f32) * config.scale / 100.0).round().max(1.0) as u32;
     let scaled_h = ((canvas_h as f32) * config.scale / 100.0).round().max(1.0) as u32;
-    let scaled = image::imageops::resize(&canvas, scaled_w, scaled_h, image::imageops::FilterType::Lanczos3);
-    let mut final_image = image::RgbImage::from_pixel(canvas_w, canvas_h, image::Rgb([255, 255, 255]));
+    let scaled = image::imageops::resize(
+        &canvas,
+        scaled_w,
+        scaled_h,
+        image::imageops::FilterType::Lanczos3,
+    );
+    let mut final_image =
+        image::RgbImage::from_pixel(canvas_w, canvas_h, image::Rgb([255, 255, 255]));
     let off_x = (canvas_w as i64 - scaled.width() as i64) / 2;
     let off_y = (canvas_h as i64 - scaled.height() as i64) / 2;
     image::imageops::overlay(&mut final_image, &scaled, off_x, off_y);

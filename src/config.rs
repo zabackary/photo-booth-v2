@@ -123,6 +123,10 @@ pub struct PrinterConfig {
     /// actual print will be scaled by this factor
     #[serde(default = "default_scale")]
     pub scale: f32,
+
+    /// A file to log print quantities to for billing or analytics purposes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub print_log_file: Option<PathBuf>,
 }
 
 fn default_copies() -> u32 {
