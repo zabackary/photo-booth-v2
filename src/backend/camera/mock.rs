@@ -4,7 +4,7 @@ use std::fmt::Display;
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 480;
 
-/// A camera backend returning blank images for testing purposes
+/// A camera backend returning placeholder images for testing purposes
 #[derive(Debug, Clone, Copy)]
 pub struct MockCameraBackend {}
 
@@ -48,12 +48,97 @@ impl super::CameraBackendHandle for MockCameraHandle {
 #[derive(Debug, Clone, Copy)]
 pub struct MockCamera {}
 
+const DIGITS: [[bool; 7]; 10] = [
+    [true, true, true, true, true, true, false],     // 0
+    [false, true, true, false, false, false, false], // 1
+    [true, true, false, true, true, false, true],    // 2
+    [true, true, true, true, false, false, true],    // 3
+    [false, true, true, false, false, true, true],   // 4
+    [true, false, true, true, false, true, true],    // 5
+    [true, false, true, true, true, true, true],     // 6
+    [true, true, true, false, false, false, false],  // 7
+    [true, true, true, true, true, true, true],      // 8
+    [true, true, true, true, false, true, true],     // 9
+];
+
 impl super::Camera for MockCamera {
     fn frame_still(&mut self) -> Result<image::RgbaImage, anyhow::Error> {
-        Ok(image::RgbaImage::new(WIDTH, HEIGHT))
+        // render a placeholder image with the timestamp as a primitive 7-segment
+        // display to avoid pulling in any deps
+        let mut img = image::RgbaImage::new(WIDTH, HEIGHT);
+        img.fill(255);
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let timestamp_str = format!("{}", timestamp);
+        let digit_width = 6;
+        let digit_height = 8;
+        for (i, c) in timestamp_str
+            .chars()
+            .enumerate()
+            .skip(timestamp_str.len().saturating_sub(4))
+        {
+            let x = i as u32 * (digit_width + 2);
+            let y = HEIGHT / 4;
+            if let Some(digit) = c.to_digit(10) {
+                let segments = DIGITS[digit as usize];
+                // top
+                if segments[0] {
+                    for dx in 0..digit_width {
+                        img.put_pixel(x + dx, y, image::Rgba([255, 0, 0, 255]));
+                    }
+                }
+                // top-right
+                if segments[1] {
+                    for dy in 0..digit_height {
+                        img.put_pixel(x + digit_width - 1, y + dy, image::Rgba([255, 0, 0, 255]));
+                    }
+                }
+                // bottom-right
+                if segments[2] {
+                    for dy in 0..digit_height {
+                        img.put_pixel(
+                            x + digit_width - 1,
+                            y + digit_height + dy,
+                            image::Rgba([255, 0, 0, 255]),
+                        );
+                    }
+                }
+                // bottom
+                if segments[3] {
+                    for dx in 0..digit_width {
+                        img.put_pixel(
+                            x + dx,
+                            y + digit_height * 2 - 1,
+                            image::Rgba([255, 0, 0, 255]),
+                        );
+                    }
+                }
+                // bottom-left
+                if segments[4] {
+                    for dy in 0..digit_height {
+                        img.put_pixel(x, y + digit_height + dy, image::Rgba([255, 0, 0, 255]));
+                    }
+                }
+                // top-left
+                if segments[5] {
+                    for dy in 0..digit_height {
+                        img.put_pixel(x, y + dy, image::Rgba([255, 0, 0, 255]));
+                    }
+                }
+                // middle
+                if segments[6] {
+                    for dx in 0..digit_width {
+                        img.put_pixel(x + dx, y + digit_height - 1, image::Rgba([255, 0, 0, 255]));
+                    }
+                }
+            }
+        }
+        Ok(img)
     }
 
     fn frame_preview(&mut self) -> Result<image::RgbaImage, anyhow::Error> {
-        Ok(image::RgbaImage::new(WIDTH, HEIGHT))
+        self.frame_still()
     }
 }
