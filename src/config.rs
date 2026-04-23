@@ -1,7 +1,7 @@
 #[cfg(feature = "storage_google_drive")]
 use std::path::PathBuf;
 
-/// The configration for the application, including which backends to use and their settings
+/// The configuration for the application, including which backends to use and their settings
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
@@ -43,23 +43,23 @@ pub struct Config {
     pub contact_email: Option<String>,
 }
 
-/// The type of camera backend and its configration
+/// The type of camera backend and its configuration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CameraConfig {
-    /// The type of camera backend and its configration
+    /// The type of camera backend and its configuration
     #[serde(flatten)]
     pub backend: CameraBackendConfig,
 
     /// The aspect ratio to use when previewing the camera
     pub preview_aspect_ratio: f32,
 
-    /// The backend configration
+    /// The backend configuration
     #[serde(flatten)]
     pub manager_config: crate::backend::manager::camera::CameraManagerConfig,
 }
 
-/// The camera backend and its configration
+/// The camera backend and its configuration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum CameraBackendConfig {
@@ -78,11 +78,11 @@ pub enum CameraBackendConfig {
     Mock,
 }
 
-/// The type of printer backend and its related configration
+/// The type of printer backend and its related configuration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrinterConfig {
-    /// The type of printer backend and its related configration
+    /// The type of printer backend and its related configuration
     #[serde(flatten)]
     pub backend: PrinterBackendConfig,
 
@@ -133,7 +133,7 @@ fn default_scale() -> f32 {
     1.0
 }
 
-/// The type of printer backend and its related configration
+/// The type of printer backend and its related configuration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum PrinterBackendConfig {
@@ -152,7 +152,7 @@ pub enum PrinterBackendConfig {
     Mock,
 }
 
-/// The email backend and its configration
+/// The email backend and its configuration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum EmailConfig {
@@ -167,7 +167,7 @@ pub enum EmailConfig {
     Mock,
 }
 
-/// The storage backend and its configration
+/// The storage backend and its configuration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum StorageConfig {
@@ -189,7 +189,7 @@ pub enum StorageConfig {
     Mock,
 }
 
-/// The renderer backend and its configration
+/// The renderer backend and its configuration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum RendererConfig {
