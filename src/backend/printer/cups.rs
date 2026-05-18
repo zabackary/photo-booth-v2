@@ -84,18 +84,21 @@ pub struct CupsPrinter {
 
 #[async_trait::async_trait]
 impl super::Printer for CupsPrinter {
-    async fn print(&mut self, photo: &image::RgbImage) -> Result<(), anyhow::Error> {
+    async fn print(&mut self, photo: &image::RgbImage, copies: u32) -> Result<(), anyhow::Error> {
         log::info!(
             "Printing CUPS photo of size {}x{}",
             photo.width(),
             photo.height()
         );
-        // save to disk for now
+        // make up a filename to report to the printer
+        // it's not actually a real file, but the CUPS API requires it.
         let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S");
         let filename = format!("cups_print_{}.jpg", timestamp);
 
         // submit the job to CUPS
-        let options = cups_rs::PrintOptions::new().color_mode(cups_rs::ColorMode::Color);
+        let options = cups_rs::PrintOptions::new()
+            .color_mode(cups_rs::ColorMode::Color)
+            .copies(copies);
         let job = cups_rs::create_job_with_options(
             &self.destination,
             &filename,

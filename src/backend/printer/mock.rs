@@ -39,11 +39,12 @@ pub struct MockPrinter {}
 
 #[async_trait::async_trait]
 impl super::Printer for MockPrinter {
-    async fn print(&mut self, photo: &image::RgbImage) -> Result<(), anyhow::Error> {
+    async fn print(&mut self, photo: &image::RgbImage, copies: u32) -> Result<(), anyhow::Error> {
         log::info!(
-            "Printing mock photo of size {}x{}",
+            "Printing mock photo of size {}x{} with {} copies",
             photo.width(),
-            photo.height()
+            photo.height(),
+            copies
         );
         // save to disk for now
         let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S");

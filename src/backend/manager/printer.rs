@@ -135,23 +135,22 @@ impl PrinterManager {
             );
         }
         let mut backend = self.backend.lock().await;
-        for i in 0..true_quantity {
-            log::debug!("Printing copy {}/{}", i + 1, true_quantity);
-            self.print_single(&mut backend, &processed_photo).await?;
-        }
+        log::debug!("Sending print job for {} copies", true_quantity);
+        self.send_print(&mut backend, &processed_photo, true_quantity)
+            .await?;
         std::mem::drop(backend); // hold on to it until here to print all copies before allowing any other print jobs to start
         Ok(())
     }
 
-    /// Print a single photo
-    async fn print_single(
+    async fn send_print(
         &self,
         backend: &mut Box<dyn crate::backend::printer::PrinterBackend>,
         processed_photo: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
+        copies: u32,
     ) -> Result<(), anyhow::Error> {
         let mut printer = self.current_printer.lock().await;
         loop {
-            match printer.print(processed_photo).await {
+            match printer.print(processed_photo, copies).await {
                 Ok(()) => break,
                 Err(e) => {
                     log::error!("Failed to print photo: {:?}", e);
