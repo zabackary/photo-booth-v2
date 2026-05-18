@@ -38,7 +38,7 @@ impl BackendManager {
     pub async fn new(
         camera_backend: (Box<dyn CameraBackend>, camera::CameraManagerConfig),
         storage_backend: Box<dyn StorageBackend>,
-        renderer_backend: Box<dyn RendererBackend>,
+        renderer_backend: Vec<Box<dyn RendererBackend>>,
         printer_backend: Option<(Box<dyn PrinterBackend>, printer::PrinterManagerConfig)>,
         email_backend: Option<(Box<dyn EmailBackend>, email::EmailManagerConfig)>,
     ) -> Result<Self, anyhow::Error> {
@@ -122,13 +122,18 @@ impl BackendManager {
             #[cfg(feature = "mock")]
             crate::config::StorageConfig::Mock => Box::new(crate::backend::storage::mock::MockStorageBackend {}),
         };
-        let renderer_backend = match config.renderer {
-            #[cfg(feature = "renderer_simple")]
-            crate::config::RendererConfig::Simple { ref templates } => Box::new(
-                crate::backend::renderer::simple::SimpleRendererBackend::new(templates.clone()),
-            )
-                as Box<dyn RendererBackend>,
-        };
+        let renderer_backends = config
+            .renderers
+            .iter()
+            .map(|backend_config| match backend_config {
+                #[cfg(feature = "renderer_simple")]
+                crate::config::RendererConfig::Simple { template } => Box::new(
+                    crate::backend::renderer::simple::SimpleRendererBackend::new(template.clone()),
+                )
+                    as Box<dyn RendererBackend>,
+            })
+            .collect();
+
         let printer_backend = match &config.printer {
             Some(config_printer) => {
                 let backend = match config_printer.backend {
@@ -181,7 +186,7 @@ impl BackendManager {
         BackendManager::new(
             camera_backend,
             storage_backend,
-            renderer_backend,
+            renderer_backends,
             printer_backend,
             email_backend,
         )

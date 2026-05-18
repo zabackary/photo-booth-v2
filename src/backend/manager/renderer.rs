@@ -3,14 +3,14 @@ use std::sync::Arc;
 /// A renderer manager that handles rendering photos
 #[derive(Debug, Clone)]
 pub struct RendererManager {
-    backend: Arc<tokio::sync::Mutex<Box<dyn crate::backend::renderer::RendererBackend>>>,
+    backends: Arc<tokio::sync::Mutex<Vec<Box<dyn crate::backend::renderer::RendererBackend>>>>,
 }
 
 impl RendererManager {
     /// Create a new [`RendererManager`] with the given renderer backend
-    pub fn new(renderer_backend: Box<dyn crate::backend::renderer::RendererBackend>) -> Self {
+    pub fn new(renderer_backends: Vec<Box<dyn crate::backend::renderer::RendererBackend>>) -> Self {
         RendererManager {
-            backend: Arc::new(tokio::sync::Mutex::new(renderer_backend)),
+            backends: Arc::new(tokio::sync::Mutex::new(renderer_backends)),
         }
     }
 
@@ -18,12 +18,12 @@ impl RendererManager {
     ///
     /// Essentially, whether the mutex is currently locked.
     pub fn busy(&self) -> bool {
-        self.backend.try_lock().is_err()
+        self.backends.try_lock().is_err()
     }
 
     /// Wait for the manager to finish rendering the current photo, if any.
     pub async fn wait(&self) {
-        let _ = self.backend.lock().await;
+        let _ = self.backends.lock().await;
     }
 
     /// Render a photo
@@ -31,7 +31,14 @@ impl RendererManager {
         &self,
         photos: Vec<image::RgbaImage>,
     ) -> Result<Vec<image::RgbaImage>, anyhow::Error> {
-        let guard = self.backend.lock().await;
-        guard.render(photos).await
+        let backends = self.backends.lock().await;
+        if backends.is_empty() {
+            return Ok(photos);
+        }
+        // Render the photo with all backends in parallel using futures::future::join_all
+        futures::future::join_all(backends.iter().map(|backend| backend.render(&photos)))
+            .await
+            .into_iter()
+            .collect()
     }
 }

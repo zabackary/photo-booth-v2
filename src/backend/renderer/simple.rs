@@ -10,13 +10,13 @@ use serde::{Deserialize, Serialize};
 /// photos should be placed.
 #[derive(Debug, Clone)]
 pub struct SimpleRendererBackend {
-    templates: Vec<Template>,
+    template: Template,
 }
 
 impl SimpleRendererBackend {
-    /// Creates a new [`SimpleRendererBackend`] with the given templates.
-    pub fn new(templates: Vec<Template>) -> Self {
-        Self { templates }
+    /// Creates a new [`SimpleRendererBackend`] with the given template.
+    pub fn new(template: Template) -> Self {
+        Self { template }
     }
 
     /// Renders a photo strip from the given photos using the given template.
@@ -59,40 +59,30 @@ impl SimpleRendererBackend {
 
 #[async_trait::async_trait]
 impl super::RendererBackend for SimpleRendererBackend {
-    async fn render(
-        &self,
-        photos: Vec<image::RgbaImage>,
-    ) -> Result<Vec<image::RgbaImage>, anyhow::Error> {
-        futures::future::join_all(self.templates.iter().map(|template| {
-            let photos = photos
-                .iter()
-                .zip(&template.frames)
-                .map(|(photo, frame)| (frame.clone(), photo))
-                .collect::<Vec<_>>();
-            async move {
-                let overlay = tokio::fs::read(&template.image_path)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "failed to read template image from path {:?}",
-                            template.image_path
-                        )
-                    })
-                    .and_then(|data| {
-                        image::load_from_memory(&data).map_err(|e| {
-                            anyhow::anyhow!(
-                                "failed to decode template image from path {:?}: {}",
-                                template.image_path,
-                                e
-                            )
-                        })
-                    })?;
-                self.render_template(&overlay.to_rgba8(), &photos).await
-            }
-        }))
-        .await
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()
+    async fn render(&self, photos: &[image::RgbaImage]) -> Result<image::RgbaImage, anyhow::Error> {
+        let photos = photos
+            .iter()
+            .zip(&self.template.frames)
+            .map(|(photo, frame)| (frame.clone(), photo))
+            .collect::<Vec<_>>();
+        let overlay = tokio::fs::read(&self.template.image_path)
+            .await
+            .with_context(|| {
+                format!(
+                    "failed to read template image from path {:?}",
+                    self.template.image_path
+                )
+            })
+            .and_then(|data| {
+                image::load_from_memory(&data).map_err(|e| {
+                    anyhow::anyhow!(
+                        "failed to decode template image from path {:?}: {}",
+                        self.template.image_path,
+                        e
+                    )
+                })
+            })?;
+        self.render_template(&overlay.to_rgba8(), &photos).await
     }
 }
 

@@ -22,69 +22,68 @@
     "type": "localfilesystem",
     "path": "./photos"
   },
-  "renderer": {
-    "type": "simple",
-    "templates": [
-      {
-        "imagePath": "./assets/template.png",
-        "frames": [
-          {
-            "x": 30,
-            "y": 40,
-            "width": 540,
-            "height": 360
-          },
-          {
-            "x": 30,
-            "y": 430,
-            "width": 540,
-            "height": 360
-          },
-          {
-            "x": 30,
-            "y": 820,
-            "width": 540,
-            "height": 360
-          },
-          {
-            "x": 30,
-            "y": 1210,
-            "width": 540,
-            "height": 360
-          }
-        ]
-      },
-      {
-        "imagePath": "./assets/template.png",
-        "frames": [
-          {
-            "x": 30,
-            "y": 40,
-            "width": 540,
-            "height": 360
-          },
-          {
-            "x": 30,
-            "y": 430,
-            "width": 540,
-            "height": 360
-          },
-          {
-            "x": 30,
-            "y": 820,
-            "width": 540,
-            "height": 360
-          },
-          {
-            "x": 30,
-            "y": 1210,
-            "width": 540,
-            "height": 360
-          }
-        ]
-      }
-    ]
-  },
+  "renderers": [
+    {
+      "type": "simple",
+      "imagePath": "./assets/template.png",
+      "frames": [
+        {
+          "x": 30,
+          "y": 40,
+          "width": 540,
+          "height": 360
+        },
+        {
+          "x": 30,
+          "y": 430,
+          "width": 540,
+          "height": 360
+        },
+        {
+          "x": 30,
+          "y": 820,
+          "width": 540,
+          "height": 360
+        },
+        {
+          "x": 30,
+          "y": 1210,
+          "width": 540,
+          "height": 360
+        }
+      ]
+    },
+    {
+      "type": "simple",
+      "imagePath": "./assets/template.png",
+      "frames": [
+        {
+          "x": 30,
+          "y": 40,
+          "width": 540,
+          "height": 360
+        },
+        {
+          "x": 30,
+          "y": 430,
+          "width": 540,
+          "height": 360
+        },
+        {
+          "x": 30,
+          "y": 820,
+          "width": 540,
+          "height": 360
+        },
+        {
+          "x": 30,
+          "y": 1210,
+          "width": 540,
+          "height": 360
+        }
+      ]
+    }
+  ],
   "photosPerStrip": 4,
   "theme": {
     "background": "#BBBDD5",
