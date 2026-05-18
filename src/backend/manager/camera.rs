@@ -59,6 +59,8 @@ impl CameraManager {
         config: CameraManagerConfig,
     ) -> (Self, tokio::sync::mpsc::Receiver<()>) {
         let current_frame = Arc::new(std::sync::Mutex::new(None));
+        // TODO: reconnecting seems to not reset to false after a successful reconnection
+        // might be a race condition with the `select!`
         let reconnecting = Arc::new(std::sync::Mutex::new(false));
         let (frame_still_command_tx, mut frame_still_command_rx) = tokio::sync::mpsc::channel(1);
         let (frame_still_tx, frame_still_rx) = tokio::sync::mpsc::channel(1);
