@@ -21,7 +21,6 @@ impl SimpleRendererBackend {
 
     /// Renders a photo strip from the given photos using the given template.
     async fn render_template(
-        &self,
         overlay: &image::RgbaImage,
         photos: &[(Frame, &image::RgbaImage)],
     ) -> Result<image::RgbaImage, anyhow::Error> {
@@ -55,6 +54,31 @@ impl SimpleRendererBackend {
 
         Ok(strip)
     }
+
+    /// Renders a template given the path to the template image and the frames for each photo
+    pub async fn render_template_from_path(
+        photos: &[(Frame, &image::RgbaImage)],
+        template_path: &PathBuf,
+    ) -> Result<image::RgbaImage, anyhow::Error> {
+        let overlay = tokio::fs::read(template_path)
+            .await
+            .with_context(|| {
+                format!(
+                    "failed to read template image from path {:?}",
+                    template_path
+                )
+            })
+            .and_then(|data| {
+                image::load_from_memory(&data).map_err(|e| {
+                    anyhow::anyhow!(
+                        "failed to decode template image from path {:?}: {}",
+                        template_path,
+                        e
+                    )
+                })
+            })?;
+        Self::render_template(&overlay.to_rgba8(), photos).await
+    }
 }
 
 #[async_trait::async_trait]
@@ -65,24 +89,7 @@ impl super::RendererBackend for SimpleRendererBackend {
             .zip(&self.template.frames)
             .map(|(photo, frame)| (frame.clone(), photo))
             .collect::<Vec<_>>();
-        let overlay = tokio::fs::read(&self.template.image_path)
-            .await
-            .with_context(|| {
-                format!(
-                    "failed to read template image from path {:?}",
-                    self.template.image_path
-                )
-            })
-            .and_then(|data| {
-                image::load_from_memory(&data).map_err(|e| {
-                    anyhow::anyhow!(
-                        "failed to decode template image from path {:?}: {}",
-                        self.template.image_path,
-                        e
-                    )
-                })
-            })?;
-        self.render_template(&overlay.to_rgba8(), &photos).await
+        Self::render_template_from_path(&photos, &self.template.image_path).await
     }
 }
 
