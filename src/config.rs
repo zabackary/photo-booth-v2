@@ -15,11 +15,10 @@ pub struct Config {
     pub email: Option<EmailConfig>,
     /// The storage backend to use, along with its settings
     pub storage: StorageConfig,
-    /// The renderer backends to use, along with their settings
+    /// A list of renders to draw from the captured photos
     ///
-    /// Passing multiple renderers will present the user with options to choose
-    /// from. The rendered combined photos will appear in the order specified.
-    pub renderers: Vec<RendererConfig>,
+    /// Renders can be customized by providing frames and filters.
+    pub renders: Vec<RenderConfig>,
 
     /// JSON key file for the service account used to initialize Google API
     /// credentials
@@ -196,17 +195,17 @@ pub enum StorageConfig {
     Mock,
 }
 
-/// A renderer backend and its configuration
+/// The configuration to use while rendering photos
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum RendererConfig {
-    /// A simple backend that superimposes a template on the captured images
-    #[cfg(feature = "renderer_simple")]
-    Simple {
-        /// The template to use to render
-        #[serde(flatten)]
-        template: crate::backend::renderer::simple::Template,
-    },
+#[serde(rename_all = "camelCase")]
+pub struct RenderConfig {
+    /// The template to use to render
+    #[serde(flatten)]
+    pub template: crate::backend::renderer::Template,
+
+    /// The filters to apply to the photos when rendering
+    #[serde(default)]
+    pub filters: Vec<crate::backend::renderer::Filter>,
 }
 
 /// The theme to use for the frontend

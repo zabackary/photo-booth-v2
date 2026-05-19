@@ -3,8 +3,7 @@ use anyhow::Context as _;
 #[cfg(feature = "storage_google_drive")]
 use crate::backend::storage::google_drive::GoogleAuthenticationManager;
 use crate::backend::{
-    camera::CameraBackend, email::EmailBackend, printer::PrinterBackend, renderer::RendererBackend,
-    storage::StorageBackend,
+    camera::CameraBackend, email::EmailBackend, printer::PrinterBackend, storage::StorageBackend,
 };
 
 pub mod camera;
@@ -38,7 +37,7 @@ impl BackendManager {
     pub async fn new(
         camera_backend: (Box<dyn CameraBackend>, camera::CameraManagerConfig),
         storage_backend: Box<dyn StorageBackend>,
-        renderer_backend: Vec<Box<dyn RendererBackend>>,
+        renderers: Vec<super::renderer::Renderer>,
         printer_backend: Option<(Box<dyn PrinterBackend>, printer::PrinterManagerConfig)>,
         email_backend: Option<(Box<dyn EmailBackend>, email::EmailManagerConfig)>,
     ) -> Result<Self, anyhow::Error> {
@@ -58,7 +57,7 @@ impl BackendManager {
             email_manager: email_backend
                 .map(|(backend, config)| email::EmailManager::new(backend, config)),
             storage_manager: storage::StorageManager::new(storage_backend),
-            renderer_manager: renderer::RendererManager::new(renderer_backend),
+            renderer_manager: renderer::RendererManager::new(renderers),
         })
     }
 
@@ -122,15 +121,14 @@ impl BackendManager {
             #[cfg(feature = "mock")]
             crate::config::StorageConfig::Mock => Box::new(crate::backend::storage::mock::MockStorageBackend {}),
         };
-        let renderer_backends = config
-            .renderers
+        let renderers = config
+            .renders
             .iter()
-            .map(|backend_config| match backend_config {
-                #[cfg(feature = "renderer_simple")]
-                crate::config::RendererConfig::Simple { template } => Box::new(
-                    crate::backend::renderer::simple::SimpleRendererBackend::new(template.clone()),
+            .map(|backend_config| {
+                super::renderer::Renderer::new(
+                    backend_config.template.clone(),
+                    backend_config.filters.clone(),
                 )
-                    as Box<dyn RendererBackend>,
             })
             .collect();
 
@@ -186,7 +184,7 @@ impl BackendManager {
         BackendManager::new(
             camera_backend,
             storage_backend,
-            renderer_backends,
+            renderers,
             printer_backend,
             email_backend,
         )

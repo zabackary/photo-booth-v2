@@ -17,6 +17,7 @@ iced = { version = "0.14.0", features = [
   "advanced",
 ] }
 image = "0.25.2"
+imageproc = { version = "0.26.2", optional = true }
 serde = "1.0.210"
 serde_json = "1.0.128"
 tokio = { version = "1.40.0", features = ["full"] }
@@ -51,7 +52,7 @@ default = [
   "storage_google_drive",
   "storage_local_filesystem",
   "email_gapps_script_webhook",
-  "renderer_simple",
+  "filter_skin_softening",
   "printer_cups",
   "mock",
 ]
@@ -62,7 +63,7 @@ camera_gphoto2 = ["dep:gphoto2"]
 storage_google_drive = ["dep:gcp_auth", "dep:reqwest"]
 storage_local_filesystem = []
 email_gapps_script_webhook = ["storage_google_drive", "dep:reqwest"]
-renderer_simple = []
+filter_skin_softening = ["dep:imageproc"]
 printer_cups = ["dep:cups_rs"]
 
 # The following lines from https://bevyengine.org/learn/quick-start/getting-started/setup/

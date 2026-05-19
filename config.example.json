@@ -1,8 +1,7 @@
 {
   "camera": {
     "type": "nokhwa",
-    "previewAspectRatio": 1.5,
-    "fastCapture": true
+    "previewAspectRatio": 1.5
   },
   "printer": {
     "type": "mock",
@@ -22,10 +21,22 @@
     "type": "localfilesystem",
     "path": "./photos"
   },
-  "renderers": [
+  "renders": [
     {
       "type": "simple",
       "imagePath": "./assets/template.png",
+      "filters": [
+        {
+          "filter": "skinsoftening",
+          "radius": 2,
+          "spatialSigma": 1.0,
+          "colorSigma": 1.0
+        },
+        {
+          "filter": "grayscale",
+          "intensity": 0.5
+        }
+      ],
       "frames": [
         {
           "x": 30,
