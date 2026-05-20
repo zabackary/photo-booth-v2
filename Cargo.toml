@@ -54,7 +54,6 @@ default = [
   "email_gapps_script_webhook",
   "filter_skin_softening",
   "printer_cups",
-  "mock",
 ]
 fast_animations = [] # faster animations to speed up iteraction during dev
 mock = []
