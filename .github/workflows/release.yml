@@ -22,7 +22,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
 
           - os-name: Windows-x86_64
-            runs-on: windows-latest
+            runs-on: ubuntu-24.04
             target: x86_64-pc-windows-msvc
 
           - os-name: macOS-x86_64
@@ -37,10 +37,10 @@ jobs:
     steps:
       - name: Install system dependencies (Linux)
         if: matrix.platform.runs-on == 'ubuntu-24.04'
-        run: sudo apt-get update && sudo apt-get install -y libgphoto2-dev libcups2-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential libgphoto2-dev libcups2-dev libssl-dev
       - name: Install system dependencies (MacOS)
         if: matrix.platform.runs-on == 'macOS-latest'
-        run: brew update && brew install cups libgphoto2
+        run: brew update && brew install pkg-config cups libgphoto2
       - name: Checkout
         uses: actions/checkout@v6
       - name: Build binary
