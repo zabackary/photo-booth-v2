@@ -1,14 +1,16 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  - push
+    # tags:
+    #   - "v*.*.*"
+  - workflow_dispatch
 
 jobs:
   release:
     name: Release - ${{ matrix.platform.os-name }}
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - os-name: Linux-x86_64
@@ -33,6 +35,12 @@ jobs:
 
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
+      - name: Install system dependencies (Linux)
+        if: matrix.platform.runs-on == 'ubuntu-24.04'
+        run: sudo apt-get update && sudo apt-get install -y libgphoto2-dev libcups2-dev
+      - name: Install system dependencies (MacOS)
+        if: matrix.platform.runs-on == 'macOS-latest'
+        run: brew update && brew install cups libgphoto2
       - name: Checkout
         uses: actions/checkout@v6
       - name: Build binary
