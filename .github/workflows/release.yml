@@ -9,7 +9,7 @@ jobs:
   release:
     name: Release - ${{ matrix.platform.os-name }}
     permissions:
-      contents: writey
+      contents: write
     strategy:
       fail-fast: false
       matrix:
