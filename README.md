@@ -20,7 +20,7 @@ The default build (available on GitHub releases) includes the following backends
 
 - **email_gapps_script_webhook**: send email via a Google Apps Script webhook
 
-- **filter_skin_softening**: a simple skin softening filter using OpenCV
+- **filter_skin_softening**: a simple skin softening filter
 
 - **printer_cups**: print photos using CUPS (requires CUPS installed on the system)
 
