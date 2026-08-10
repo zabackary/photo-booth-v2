@@ -1,0 +1,18 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+  {
+    "label": "Debug photo-booth-v2",
+    "adapter": "CodeLLDB",
+    "type": "lldb",
+    "request": "launch",
+    "build": {
+      "command": "cargo",
+      "args": ["build"],
+    },
+    "program": "target/debug/photo-booth-v2",
+    "args": ["--config", "config.example.json"],
+  },
+]
