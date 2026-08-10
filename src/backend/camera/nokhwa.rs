@@ -171,3 +171,14 @@ impl super::Camera for NokhwaCamera {
             .with_context(|| "couldn't decode preview frame")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_initialize_nokhwa() -> Result<(), anyhow::Error> {
+        initialize_nokhwa().await?;
+        Ok(())
+    }
+}

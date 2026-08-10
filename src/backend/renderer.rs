@@ -139,3 +139,30 @@ pub struct Frame {
     /// The height of the frame, in pixels
     pub height: f32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_render_template() {
+        let template = Template {
+            image_path: PathBuf::from("assets/template.png"),
+            frames: vec![Frame {
+                x: 30.0,
+                y: 40.0,
+                width: 540.0,
+                height: 360.0,
+            }],
+        };
+        let renderer = Renderer::new(template, vec![]);
+        let result = renderer.render(&[image::RgbaImage::new(540, 360)]).await;
+        assert!(result.is_ok());
+
+        let result_image = result.unwrap();
+        let pixel = result_image.get_pixel(30, 40);
+        assert_eq!(pixel, &image::Rgba([0, 0, 0, 255]));
+        let pixel = result_image.get_pixel(30 + 539, 40 + 359);
+        assert_eq!(pixel, &image::Rgba([0, 0, 0, 255]));
+    }
+}

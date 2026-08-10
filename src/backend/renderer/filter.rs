@@ -69,3 +69,35 @@ impl Filter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hue_rotate() {
+        let mut photo = image::RgbImage::new(1, 1);
+        photo.put_pixel(0, 0, image::Rgb([255, 0, 0]));
+        let filter = Filter::HueRotate { degrees: 90 };
+        let result = filter.apply(photo);
+        assert_eq!(result.get_pixel(0, 0), &image::Rgb([0, 90, 0]));
+    }
+
+    #[test]
+    fn test_grayscale() {
+        let mut photo = image::RgbImage::new(1, 1);
+        photo.put_pixel(0, 0, image::Rgb([255, 0, 0]));
+        let filter = Filter::Grayscale { intensity: 1.0 };
+        let result = filter.apply(photo);
+        assert_eq!(result.get_pixel(0, 0), &image::Rgb([54, 54, 54]));
+    }
+
+    #[test]
+    fn test_brightness() {
+        let mut photo = image::RgbImage::new(1, 1);
+        photo.put_pixel(0, 0, image::Rgb([255, 0, 0]));
+        let filter = Filter::Brightness { amount: -1.0 };
+        let result = filter.apply(photo);
+        assert_eq!(result.get_pixel(0, 0), &image::Rgb([0, 0, 0]));
+    }
+}
