@@ -67,6 +67,8 @@
               ])
             );
 
+          # Full runtime path, used for the dev shell where a consistent
+          # Nix-provided Mesa/Vulkan is desirable.
           libPath =
             if isLinux then
               with pkgs;
@@ -74,6 +76,24 @@
                 libGL
                 libxkbcommon
                 vulkan-loader
+                wayland
+                xorg.libXcursor
+                xorg.libXrandr
+                xorg.libXi
+                xorg.libX11
+              ]
+            else
+              "";
+
+          # Runtime path baked into the shipped package/bundle. libGL and
+          # vulkan-loader are deliberately excluded: those must dlopen the
+          # host's own driver-matched copies, not Nix's, or GPU accel breaks
+          # on the machine actually running the `nix bundle` output.
+          bundleLibPath =
+            if isLinux then
+              with pkgs;
+              lib.makeLibraryPath [
+                libxkbcommon
                 wayland
                 xorg.libXcursor
                 xorg.libXrandr
@@ -111,8 +131,10 @@
               inherit nativeBuildInputs buildInputs;
 
               postInstall = ''
-                wrapProgram "$out/bin/${cargoToml.package.name}" --prefix LD_LIBRARY_PATH : ${libPath} --prefix DYLD_LIBRARY_PATH : ${libPath}
+                wrapProgram "$out/bin/${cargoToml.package.name}" --prefix LD_LIBRARY_PATH : ${bundleLibPath} --prefix DYLD_LIBRARY_PATH : ${bundleLibPath}
               '';
+
+              meta.mainProgram = cargoToml.package.name;
             }
             // envVars
           );
