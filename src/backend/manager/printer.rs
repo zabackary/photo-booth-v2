@@ -180,55 +180,73 @@ pub fn preprocess_photo(
     config: &PrinterManagerConfig,
     photo: image::RgbImage,
 ) -> (image::RgbImage, u32) {
-    let mut copies_per_output = 1u32;
+    let (work, copies_per_output) = auto_format_image(photo, config);
+    let final_image = fit_photo_to_canvas(
+        work,
+        config.horizontal_resolution,
+        config.vertical_resolution,
+        config.scale,
+    );
+    (final_image, copies_per_output)
+}
 
-    // Step 1: Optionally convert into a "strip" by duplicating the image
-    // horizontally or vertically when the photo is very skinny/wide.
-    let mut work = if config.auto_format {
-        let photo_ar = photo.width() as f32 / photo.height() as f32;
-        let canvas_ar = config.horizontal_resolution as f32 / config.vertical_resolution as f32;
-        if photo_ar < canvas_ar / 2.0 {
-            // very skinny: make a vertical strip duplicated side-by-side
-            let mut strip = image::RgbImage::new(photo.width() * 2, photo.height());
-            image::imageops::overlay(&mut strip, &photo, 0, 0);
-            image::imageops::overlay(&mut strip, &photo, photo.width() as i64, 0);
-            copies_per_output = 2;
-            strip
-        } else if (1.0 / photo_ar) < (1.0 / canvas_ar) / 2.0 {
-            // very wide: duplicate top/bottom
-            let mut strip = image::RgbImage::new(photo.width(), photo.height() * 2);
-            image::imageops::overlay(&mut strip, &photo, 0, 0);
-            image::imageops::overlay(&mut strip, &photo, 0, photo.height() as i64);
-            copies_per_output = 2;
-            strip
-        } else {
-            photo
-        }
+/// Optionally duplicate a skinny/wide image so it fills a portrait/landscape
+/// canvas better, returning the (possibly duplicated) image and how many copies
+/// of the original are contained in each print output.
+pub fn auto_format_image(
+    photo: image::RgbImage,
+    config: &PrinterManagerConfig,
+) -> (image::RgbImage, u32) {
+    if !config.auto_format {
+        return (photo, 1);
+    }
+    let photo_ar = photo.width() as f32 / photo.height() as f32;
+    let canvas_ar = config.horizontal_resolution as f32 / config.vertical_resolution as f32;
+    if photo_ar < canvas_ar / 2.0 {
+        // very skinny: make a vertical strip duplicated side-by-side
+        let mut strip = image::RgbImage::new(photo.width() * 2, photo.height());
+        image::imageops::overlay(&mut strip, &photo, 0, 0);
+        image::imageops::overlay(&mut strip, &photo, photo.width() as i64, 0);
+        (strip, 2)
+    } else if (1.0 / photo_ar) < (1.0 / canvas_ar) / 2.0 {
+        // very wide: duplicate top/bottom
+        let mut strip = image::RgbImage::new(photo.width(), photo.height() * 2);
+        image::imageops::overlay(&mut strip, &photo, 0, 0);
+        image::imageops::overlay(&mut strip, &photo, 0, photo.height() as i64);
+        (strip, 2)
+    } else {
+        (photo, 1)
+    }
+}
+
+/// Orient, scale-to-fit, center, and apply the scale factor to produce a
+/// `canvas_w × canvas_h` image ready for printing.
+///
+/// `scale` is a percentage (100.0 = full size).
+pub fn fit_photo_to_canvas(
+    photo: image::RgbImage,
+    canvas_w: u32,
+    canvas_h: u32,
+    scale: f32,
+) -> image::RgbImage {
+    // Step 1: Choose orientation (rotated or not) that gives the largest
+    // scale-to-fit factor so the image fills the canvas as much as possible.
+    let (w, h) = (photo.width() as f32, photo.height() as f32);
+    let scale_no_rot = (canvas_w as f32 / w).min(canvas_h as f32 / h);
+    let scale_rot = (canvas_w as f32 / h).min(canvas_h as f32 / w);
+    let work = if scale_rot > scale_no_rot {
+        image::imageops::rotate90(&photo)
     } else {
         photo
     };
 
-    // Canvas target size
-    let canvas_w = config.horizontal_resolution;
-    let canvas_h = config.vertical_resolution;
-
-    // Step 2: Choose orientation (rotated or not) that gives the largest
-    // scale-to-fit factor so the image fills the canvas as much as possible.
-    let (w, h) = (work.width() as f32, work.height() as f32);
-    let scale_no_rot = (canvas_w as f32 / w).min(canvas_h as f32 / h);
-    let scale_rot = (canvas_w as f32 / h).min(canvas_h as f32 / w);
-    let rotate = scale_rot > scale_no_rot;
-    if rotate {
-        work = image::imageops::rotate90(&work);
-    }
-
-    // Step 3: Resize the work image to be as large as possible within the
+    // Step 2: Resize the work image to be as large as possible within the
     // canvas while preserving aspect ratio.
     let img_w = work.width() as f32;
     let img_h = work.height() as f32;
-    let scale = (canvas_w as f32 / img_w).min(canvas_h as f32 / img_h);
-    let target_w = (img_w * scale).round().max(1.0) as u32;
-    let target_h = (img_h * scale).round().max(1.0) as u32;
+    let fit_scale = (canvas_w as f32 / img_w).min(canvas_h as f32 / img_h);
+    let target_w = (img_w * fit_scale).round().max(1.0) as u32;
+    let target_h = (img_h * fit_scale).round().max(1.0) as u32;
     let resized = image::imageops::resize(
         &work,
         target_w,
@@ -242,11 +260,11 @@ pub fn preprocess_photo(
     let offset_y = (canvas_h as i64 - resized.height() as i64) / 2;
     image::imageops::overlay(&mut canvas, &resized, offset_x, offset_y);
 
-    // Step 4: Apply final scale factor (percent) and center that result on
+    // Step 3: Apply final scale factor (percent) and center that result on
     // a canvas of the configured size. This preserves the final output
     // resolution while simulating a physical scale change.
-    let scaled_w = ((canvas_w as f32) * config.scale / 100.0).round().max(1.0) as u32;
-    let scaled_h = ((canvas_h as f32) * config.scale / 100.0).round().max(1.0) as u32;
+    let scaled_w = ((canvas_w as f32) * scale / 100.0).round().max(1.0) as u32;
+    let scaled_h = ((canvas_h as f32) * scale / 100.0).round().max(1.0) as u32;
     let scaled = image::imageops::resize(
         &canvas,
         scaled_w,
@@ -259,5 +277,121 @@ pub fn preprocess_photo(
     let off_y = (canvas_h as i64 - scaled.height() as i64) / 2;
     image::imageops::overlay(&mut final_image, &scaled, off_x, off_y);
 
-    (final_image, copies_per_output)
+    final_image
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_config(auto_format: bool, scale: f32) -> PrinterManagerConfig {
+        PrinterManagerConfig {
+            auto_format,
+            horizontal_resolution: 1179,
+            vertical_resolution: 1746,
+            scale,
+            print_log_file: None,
+        }
+    }
+
+    fn solid(w: u32, h: u32, color: image::Rgb<u8>) -> image::RgbImage {
+        image::RgbImage::from_pixel(w, h, color)
+    }
+
+    // --- auto_format_image ---
+
+    #[test]
+    fn auto_format_disabled_returns_original() {
+        let photo = solid(100, 200, image::Rgb([255, 0, 0]));
+        let config = make_config(false, 100.0);
+        let (result, copies) = auto_format_image(photo.clone(), &config);
+        assert_eq!(copies, 1);
+        assert_eq!(result.dimensions(), photo.dimensions());
+    }
+
+    #[test]
+    fn auto_format_normal_photo_unchanged() {
+        // AR ≈ canvas AR (portrait), no duplication expected
+        let photo = solid(600, 800, image::Rgb([0, 255, 0]));
+        let config = make_config(true, 100.0);
+        let (result, copies) = auto_format_image(photo, &config);
+        assert_eq!(copies, 1);
+        assert_eq!(result.dimensions(), (600, 800));
+    }
+
+    #[test]
+    fn auto_format_very_wide_photo_duplicated_vertically() {
+        // AR = 1000/100 = 10.0; canvas AR ≈ 0.675; 10 > 2*0.675, so "very wide"
+        let photo = solid(1000, 100, image::Rgb([0, 0, 255]));
+        let config = make_config(true, 100.0);
+        let (result, copies) = auto_format_image(photo, &config);
+        assert_eq!(copies, 2);
+        assert_eq!(result.dimensions(), (1000, 200));
+    }
+
+    #[test]
+    fn auto_format_very_skinny_photo_duplicated_horizontally() {
+        // AR = 50/1000 = 0.05; canvas AR ≈ 0.675; 0.05 < 0.675/2 = 0.3375, so "very skinny"
+        let photo = solid(50, 1000, image::Rgb([255, 255, 0]));
+        let config = make_config(true, 100.0);
+        let (result, copies) = auto_format_image(photo, &config);
+        assert_eq!(copies, 2);
+        assert_eq!(result.dimensions(), (100, 1000));
+    }
+
+    // --- fit_photo_to_canvas ---
+
+    #[test]
+    fn fit_always_produces_canvas_dimensions() {
+        let cases = [(100u32, 100u32), (540, 360), (1, 1), (50, 200)];
+        for (w, h) in cases {
+            let photo = solid(w, h, image::Rgb([128, 128, 128]));
+            let result = fit_photo_to_canvas(photo, 1179, 1746, 100.0);
+            assert_eq!(
+                result.dimensions(),
+                (1179, 1746),
+                "expected (1179, 1746) for input {w}x{h}"
+            );
+        }
+    }
+
+    #[test]
+    fn fit_scale_100_fills_canvas() {
+        // A perfectly portrait 1179×1746 image at scale 100 should fill the canvas
+        let photo = solid(1179, 1746, image::Rgb([200, 100, 50]));
+        let result = fit_photo_to_canvas(photo, 1179, 1746, 100.0);
+        assert_eq!(result.dimensions(), (1179, 1746));
+        // Center pixel should be from the original (not a white border pixel)
+        let center = result.get_pixel(1179 / 2, 1746 / 2);
+        assert_ne!(center, &image::Rgb([255, 255, 255]), "center should not be white border");
+    }
+
+    #[test]
+    fn fit_scale_50_leaves_white_border() {
+        // At 50% scale the image occupies half the canvas; corners must be the
+        // white background
+        let photo = solid(1179, 1746, image::Rgb([200, 100, 50]));
+        let result = fit_photo_to_canvas(photo, 1179, 1746, 50.0);
+        assert_eq!(result.dimensions(), (1179, 1746));
+        assert_eq!(result.get_pixel(0, 0), &image::Rgb([255, 255, 255]));
+        assert_eq!(result.get_pixel(1178, 1745), &image::Rgb([255, 255, 255]));
+    }
+
+    // --- preprocess_photo (integration) ---
+
+    #[test]
+    fn preprocess_photo_output_always_canvas_size() {
+        let config = make_config(true, 100.0);
+        let photo = solid(540, 360, image::Rgb([10, 20, 30]));
+        let (result, _copies) = preprocess_photo(&config, photo);
+        assert_eq!(result.dimensions(), (1179, 1746));
+    }
+
+    #[test]
+    fn preprocess_photo_no_auto_format_copies_is_1() {
+        let config = make_config(false, 100.0);
+        let photo = solid(1000, 100, image::Rgb([10, 20, 30]));
+        let (_result, copies) = preprocess_photo(&config, photo);
+        assert_eq!(copies, 1);
+    }
 }
