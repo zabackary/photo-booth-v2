@@ -100,4 +100,17 @@ mod tests {
         let result = filter.apply(photo);
         assert_eq!(result.get_pixel(0, 0), &image::Rgb([0, 0, 0]));
     }
+
+    #[test]
+    fn test_contrast() {
+        let mut photo = image::RgbImage::new(1, 1);
+        photo.put_pixel(0, 0, image::Rgb([128, 128, 128]));
+        // High positive contrast pushes mid-gray toward white
+        let filter = Filter::Contrast { amount: 255.0 };
+        let result = filter.apply(photo);
+        let pixel = result.get_pixel(0, 0);
+        assert!(pixel[0] > 128, "red channel should increase with high contrast");
+        assert_eq!(pixel[0], pixel[1], "gray pixel should remain gray");
+        assert_eq!(pixel[1], pixel[2], "gray pixel should remain gray");
+    }
 }
