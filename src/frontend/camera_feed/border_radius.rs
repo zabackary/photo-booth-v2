@@ -119,3 +119,35 @@ fn border_radius(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use iced::border::Radius;
+
+    #[test]
+    fn zero_radius_leaves_image_unchanged() {
+        let mut img = image::ImageBuffer::from_pixel(10, 10, image::Rgba([255, 0, 0, 255]));
+        round(&mut img, &Radius::from(0));
+        for pixel in img.pixels() {
+            assert_eq!(pixel, &image::Rgba([255, 0, 0, 255]));
+        }
+    }
+
+    #[test]
+    fn nonzero_radius_clears_corner_pixels() {
+        let mut img = image::ImageBuffer::from_pixel(20, 20, image::Rgba([255, 0, 0, 255]));
+        round(&mut img, &Radius::from(5));
+        assert_eq!(img.get_pixel(0, 0)[3], 0, "top-left corner should be transparent");
+        assert_eq!(img.get_pixel(19, 0)[3], 0, "top-right corner should be transparent");
+        assert_eq!(img.get_pixel(0, 19)[3], 0, "bottom-left corner should be transparent");
+        assert_eq!(img.get_pixel(19, 19)[3], 0, "bottom-right corner should be transparent");
+    }
+
+    #[test]
+    fn center_pixel_untouched_after_rounding() {
+        let mut img = image::ImageBuffer::from_pixel(20, 20, image::Rgba([0, 255, 0, 255]));
+        round(&mut img, &Radius::from(5));
+        assert_eq!(img.get_pixel(10, 10)[3], 255, "center pixel alpha should be unchanged");
+    }
+}
