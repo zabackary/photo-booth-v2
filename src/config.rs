@@ -219,6 +219,28 @@ pub struct ThemeConfig {
     warning: hex_color::HexColor,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(all(
+        feature = "mock",
+        feature = "camera_nokhwa",
+        feature = "storage_local_filesystem",
+        feature = "filter_skin_softening"
+    ))]
+    fn test_config_example_deserializes() {
+        let json = include_str!("../config.example.json");
+        let config: Config = serde_json::from_str(json).expect("config.example.json should deserialize");
+        assert_eq!(config.photos_per_strip, 4);
+        assert_eq!(config.event_name, "My Photo Booth Event");
+        assert_eq!(config.renders.len(), 2);
+        assert_eq!(config.renders[0].filters.len(), 2);
+        assert_eq!(config.renders[1].filters.len(), 0);
+    }
+}
+
 impl From<ThemeConfig> for iced::theme::palette::Palette {
     fn from(config: ThemeConfig) -> Self {
         Self {
