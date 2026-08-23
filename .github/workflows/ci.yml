@@ -10,38 +10,18 @@ jobs:
   test:
     name: Test (x86_64 Linux)
     runs-on: ubuntu-24.04
+    permissions:
+      id-token: "write"
+      contents: "read"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            clang \
-            libclang-dev \
-            pkg-config \
-            libssl-dev \
-            libgphoto2-dev \
-            libcups2-dev \
-            libgl-dev \
-            libxkbcommon-dev \
-            libvulkan-dev \
-            libwayland-dev \
-            libxcursor-dev \
-            libxrandr-dev \
-            libxi-dev \
-            libx11-dev \
-            libv4l-dev
+      - uses: DeterminateSystems/nix-installer-action@v22
 
-      - name: Set LIBCLANG_PATH
-        run: echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> $GITHUB_ENV
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: DeterminateSystems/magic-nix-cache-action@v14
 
       - uses: Swatinem/rust-cache@v2
 
       - name: Run tests
-        run: cargo test --locked --features mock
+        run: nix develop --command cargo test --locked --features mock
