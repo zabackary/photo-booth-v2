@@ -130,8 +130,10 @@
 
               inherit nativeBuildInputs buildInputs;
 
-              postInstall = ''
-                wrapProgram "$out/bin/${cargoToml.package.name}" --prefix LD_LIBRARY_PATH : ${bundleLibPath} --prefix DYLD_LIBRARY_PATH : ${bundleLibPath}
+              # All wrapped libs are Linux-only; on Darwin bundleLibPath is
+              # empty and an empty --prefix value breaks makeWrapper's parsing.
+              postInstall = lib.optionalString isLinux ''
+                wrapProgram "$out/bin/${cargoToml.package.name}" --prefix LD_LIBRARY_PATH : ${bundleLibPath}
               '';
 
               meta.mainProgram = cargoToml.package.name;
