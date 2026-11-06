@@ -86,51 +86,63 @@ pub struct CupsPrinter {
 impl super::Printer for CupsPrinter {
     async fn print(&mut self, photo: &image::RgbImage, copies: u32) -> Result<(), anyhow::Error> {
         log::info!(
-            "Printing CUPS photo of size {}x{}",
+            "Printing CUPS photo of size {}x{} ({} copies)",
             photo.width(),
-            photo.height()
+            photo.height(),
+            copies
         );
         // make up a filename to report to the printer
         // it's not actually a real file, but the CUPS API requires it.
         let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S");
-        let filename = format!("cups_print_{}.jpg", timestamp);
 
-        // submit the job to CUPS
-        let options = cups_rs::PrintOptions::new()
-            .color_mode(cups_rs::ColorMode::Color)
-            .copies(copies);
-        let job = cups_rs::create_job_with_options(
-            &self.destination,
-            &filename,
-            &if let Some(ref media) = self.media {
-                options.media(media)
-            } else {
-                options
-            },
-        )
-        .context("failed to create job")?;
+        // encode once and reuse the data for every copy
         let mut encoded = Vec::new();
         let mut encoded_cursor = Cursor::new(&mut encoded);
         photo
             .write_to(&mut encoded_cursor, image::ImageFormat::Jpeg)
             .context("failed to encode strip image")?;
-        job.submit_data(&encoded, cups_rs::job::FORMAT_JPEG, &filename)?;
 
-        log::debug!("Print job submitted to CUPS with ID: {}", job.id);
+        let options = cups_rs::PrintOptions::new().color_mode(cups_rs::ColorMode::Color);
+        let options = if let Some(ref media) = self.media {
+            options.media(media)
+        } else {
+            options
+        };
 
-        // wait for the job to complete by polling the printer state
-        match wait_for_print_job_completion(&job).await {
-            Ok(info) => {
-                if info.status == cups_rs::JobStatus::Completed {
-                    log::info!("CUPS print job completed with status: {}", info.status);
-                } else {
-                    log::error!("CUPS print job failed with status: {}", info.status);
-                    anyhow::bail!("print job failed with status: {}", info.status);
+        // submit one single-copy job per copy rather than using the copies
+        // option, waiting for each to finish before sending the next
+        for copy in 1..=copies {
+            let filename = format!("cups_print_{}_{}.jpg", timestamp, copy);
+            let job = cups_rs::create_job_with_options(&self.destination, &filename, &options)
+                .context("failed to create job")?;
+            job.submit_data(&encoded, cups_rs::job::FORMAT_JPEG, &filename)?;
+
+            log::debug!(
+                "Print job {}/{} submitted to CUPS with ID: {}",
+                copy,
+                copies,
+                job.id
+            );
+
+            // wait for the job to complete by polling the printer state
+            match wait_for_print_job_completion(&job).await {
+                Ok(info) => {
+                    if info.status == cups_rs::JobStatus::Completed {
+                        log::info!(
+                            "CUPS print job {}/{} completed with status: {}",
+                            copy,
+                            copies,
+                            info.status
+                        );
+                    } else {
+                        log::error!("CUPS print job failed with status: {}", info.status);
+                        anyhow::bail!("print job failed with status: {}", info.status);
+                    }
                 }
-            }
-            Err(e) => {
-                log::error!("Failed to wait for CUPS print job completion: {:?}", e);
-                anyhow::bail!("failed to wait for print job completion: {:?}", e);
+                Err(e) => {
+                    log::error!("Failed to wait for CUPS print job completion: {:?}", e);
+                    anyhow::bail!("failed to wait for print job completion: {:?}", e);
+                }
             }
         }
 
