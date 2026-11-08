@@ -29,17 +29,15 @@
           # compile-time (native) tools
           nativeBuildInputs =
             with pkgs;
-            lib.concatMap (x: x) [
-              (lib.optionals isLinux [
-                linuxHeaders
-                glibc.dev
-              ])
-              [
-                pkg-config
-                libclang
-                mold-wrapped
-                makeWrapper
-              ]
+            (lib.optionals isLinux [
+              linuxHeaders
+              glibc.dev
+            ])
+            ++ [
+              pkg-config
+              libclang
+              mold-wrapped
+              makeWrapper
             ];
 
           # buildInputs contains libraries needed to compile/link and at runtime
