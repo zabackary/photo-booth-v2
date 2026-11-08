@@ -1,7 +1,7 @@
 use iced::{
-    Alignment, Background, Color, Element, Length, Radians,
+    Alignment, Background, Color, Element, Length, Padding, Radians,
     gradient::Linear,
-    widget::{Text, container, space, text},
+    widget::{Container, Text, button, container, row, space, text},
 };
 
 use crate::{FONT_BOLD, FONT_ITALIC};
@@ -174,11 +174,11 @@ pub fn supporting_text_small(content: &str) -> Text<'_> {
 
 /// A label indicating that a key can be pressed to trigger an action. Styled
 /// similar to <key> in HTML.
-pub fn keyboard_label(content: &str) -> Text<'_> {
+pub fn keyboard_label<Message>(content: &str) -> Container<'_, Message> {
     container(
         text(content)
             .font(FONT_BOLD)
-            .size(20)
+            .size(18)
             .style(|theme: &iced::Theme| text::Style {
                 color: Some(theme.extended_palette().background.base.text),
             }),
@@ -194,6 +194,35 @@ pub fn keyboard_label(content: &str) -> Text<'_> {
         ))
         .border(iced::border::rounded(4.0))
     })
-    .padding(8)
-    .into()
+    .padding(4)
+}
+
+/// A button.
+///
+/// * `key` is the keybind, which should be in all caps
+/// * `action` is the action, which might be something like "to save"
+pub fn styled_button<'a, Message: 'a>(
+    key: &'static str,
+    action: &'static str,
+) -> iced::widget::Button<'a, Message> {
+    button(
+        row([
+            keyboard_label(key).into(),
+            space().width(8.0).into(),
+            text(action).size(24).into(),
+        ])
+        .align_y(iced::Alignment::Center),
+    )
+    .style(|theme: &iced::Theme, status| {
+        let mut normal = button::primary(theme, status);
+        normal.border.radius = 999.0.into();
+        normal
+    })
+    .padding(Padding {
+        // all around 10?
+        bottom: 10.0,
+        left: 24.0,
+        right: 24.0,
+        top: 10.0,
+    })
 }

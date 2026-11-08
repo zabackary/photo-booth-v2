@@ -6,7 +6,9 @@ use regex::Regex;
 
 use crate::frontend::{
     loading_spinners,
-    title_overlay::{full_title_overlay, supporting_text, title_text},
+    title_overlay::{
+        full_title_overlay, keyboard_label, styled_button, supporting_text, title_text,
+    },
 };
 
 static EMAIL_INPUT_ID: std::sync::LazyLock<iced::widget::Id> =
@@ -168,20 +170,11 @@ impl EmailEntry {
                                 .padding(Padding { bottom: 10.0, left: 16.0, right: 16.0, top: 10.0 })
                                 .into(),
                                 space().width(6.0).into(),
-                                button(text(if is_adding {
-                                    "Press [Enter] to add"
-                                } else {
-                                    "Press [Enter] to finish"
-                                })
-                                .size(24))
-                                .style(|theme: &iced::Theme, status| {
-                                    let mut normal = button::primary(theme, status);
-                                    normal.border.radius = 999.0.into();
-                                    normal
-                                })
-                                .padding(Padding { bottom: 10.0, left: 24.0, right: 24.0, top: 10.0 })
+                                styled_button(
+                                    "ENTER",
+                                    if is_adding { "to add" } else { "to finish" },
+                                )
                                 .on_press(EmailEntryMessage::EmailSubmit)
-                                .padding(10)
                                 .into(),
                             ])
                             .into(),

@@ -1,9 +1,9 @@
 use iced::{
     Element,
-    widget::{column, space},
+    widget::{column, row, space},
 };
 
-use crate::frontend::title_overlay::{supporting_text, title_text};
+use crate::frontend::title_overlay::{keyboard_label, supporting_text, title_text};
 
 #[derive(Debug, Clone)]
 pub struct Preview;
@@ -35,7 +35,10 @@ impl Preview {
     pub fn subscription(&self) -> iced::Subscription<PreviewMessage> {
         iced::keyboard::listen().filter_map(|event| match event {
             iced::keyboard::Event::KeyReleased {
-                key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Space),
+                key:
+                    iced::keyboard::Key::Named(
+                        iced::keyboard::key::Named::Space | iced::keyboard::key::Named::Enter,
+                    ),
                 ..
             } => Some(PreviewMessage::Start),
             _ => None,
@@ -44,15 +47,25 @@ impl Preview {
 
     pub fn view(&self) -> Element<'_, PreviewMessage> {
         iced::widget::container(
-            iced::widget::container(column([
-                title_text("Get ready to take your pictures")
+            iced::widget::container(
+                column([
+                    title_text("Get ready to take your pictures")
+                        .width(iced::Length::Shrink)
+                        .into(),
+                    space().height(12.0).into(),
+                    row([
+                        supporting_text("Press ").width(iced::Length::Shrink).into(),
+                        keyboard_label("SPACE").into(),
+                        supporting_text(" to start when you're ready.")
+                            .width(iced::Length::Shrink)
+                            .into(),
+                    ])
+                    .align_y(iced::Alignment::Center)
                     .width(iced::Length::Shrink)
                     .into(),
-                space().height(12.0).into(),
-                supporting_text("Press [SPACE] to start when you're ready.")
-                    .width(iced::Length::Shrink)
-                    .into(),
-            ]))
+                ])
+                .align_x(iced::Alignment::Center),
+            )
             .padding(12)
             .width(iced::Length::Shrink)
             .style(move |theme: &iced::Theme| iced::widget::container::Style {

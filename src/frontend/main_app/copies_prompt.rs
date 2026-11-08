@@ -6,7 +6,9 @@ use iced::{
     widget::{button, column, container, float, image, row, space, text},
 };
 
-use crate::frontend::title_overlay::{full_title_overlay, supporting_text, title_text};
+use crate::frontend::title_overlay::{
+    full_title_overlay, keyboard_label, styled_button, supporting_text, title_text,
+};
 
 fn arrow_slide_animation() -> impl anim::Animation<Item = f32> {
     anim::builder::key_frames([
@@ -194,20 +196,8 @@ impl CopiesPrompt {
                         space().into()
                     },
                     space().height(12.0).into(),
-                    button(text("Press [Enter] to confirm").size(24))
-                        .style(|theme: &iced::Theme, status| {
-                            let mut normal = button::primary(theme, status);
-                            normal.border.radius = 999.0.into();
-                            normal
-                        })
-                        .padding(Padding {
-                            bottom: 10.0,
-                            left: 24.0,
-                            right: 24.0,
-                            top: 10.0,
-                        })
+                    styled_button("ENTER", "to confirm")
                         .on_press(CopiesPromptMessage::ContinuePress)
-                        .padding(10)
                         .into(),
                 ])
                 .padding(100)

@@ -1,10 +1,12 @@
+use env_logger::fmt::style;
 use iced::{
     Element,
     widget::{column, space},
 };
 
 use crate::frontend::title_overlay::{
-    dialog_overlay, supporting_text, supporting_text_small, title_overlay, title_text,
+    dialog_overlay, styled_button, supporting_text, supporting_text_small, title_overlay,
+    title_text,
 };
 
 #[derive(Debug, Clone)]
@@ -61,8 +63,11 @@ impl Error {
                 space().height(12.0).into(),
                 supporting_text_small(&self.message_internal).into(),
                 space().height(12.0).into(),
-                supporting_text("Press [SPACE] to close this message.").into(),
-            ]),
+                styled_button("SPACE", "to close message")
+                    .on_press(ErrorMessage::Close)
+                    .into(),
+            ])
+            .align_x(iced::Alignment::Center),
         )
     }
 }
