@@ -2,12 +2,12 @@ use std::time::{Duration, Instant};
 
 use anim::Animation as _;
 use iced::{
-    Border, Color, Element, Length, Padding, Vector,
-    widget::{button, column, container, float, image, row, space, text},
+    Border, Color, Element, Length, Vector,
+    widget::{column, container, float, image, row, space, text},
 };
 
 use crate::frontend::title_overlay::{
-    full_title_overlay, keyboard_label, styled_button, supporting_text, title_text,
+    full_title_overlay, styled_button, supporting_text, title_text,
 };
 
 fn arrow_slide_animation() -> impl anim::Animation<Item = f32> {

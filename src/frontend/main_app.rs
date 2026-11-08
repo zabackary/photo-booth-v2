@@ -773,7 +773,7 @@ impl MainApp {
                 iced::widget::Space::new().into()
             },
             if let Some(discard) = &self.discard_prompt {
-                discard.view().map(MainAppMessage::Discard).into()
+                discard.view().map(MainAppMessage::Discard)
             } else {
                 iced::widget::Space::new().into()
             },

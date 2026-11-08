@@ -1,13 +1,13 @@
 use iced::{
     Border, Color, Element, Length, Padding,
-    widget::{button, column, container, image, row, space, text, text_input},
+    widget::{column, container, image, row, space, text, text_input},
 };
 use regex::Regex;
 
 use crate::frontend::{
     loading_spinners,
     title_overlay::{
-        full_title_overlay, keyboard_label, styled_button, supporting_text, title_text,
+        full_title_overlay, styled_button, supporting_text, title_text,
     },
 };
 

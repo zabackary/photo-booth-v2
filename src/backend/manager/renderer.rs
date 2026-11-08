@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use image::buffer::ConvertBuffer;
 
 use crate::backend::renderer::Renderer;
 

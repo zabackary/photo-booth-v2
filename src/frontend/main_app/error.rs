@@ -1,12 +1,10 @@
-use env_logger::fmt::style;
 use iced::{
     Element,
     widget::{column, space},
 };
 
 use crate::frontend::title_overlay::{
-    dialog_overlay, styled_button, supporting_text, supporting_text_small, title_overlay,
-    title_text,
+    dialog_overlay, styled_button, supporting_text, supporting_text_small,
 };
 
 #[derive(Debug, Clone)]

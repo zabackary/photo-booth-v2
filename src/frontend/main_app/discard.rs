@@ -1,4 +1,3 @@
-use env_logger::fmt::style;
 use iced::{
     Element,
     widget::{column, row, space},
