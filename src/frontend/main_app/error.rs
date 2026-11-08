@@ -3,7 +3,7 @@ use iced::{
     widget::{column, space},
 };
 
-use crate::frontend::title_overlay::{
+use crate::frontend::components::{
     dialog_overlay, styled_button, supporting_text, supporting_text_small,
 };
 

@@ -5,10 +5,8 @@ use iced::{
 use regex::Regex;
 
 use crate::frontend::{
+    components::{full_title_overlay, styled_button, supporting_text, title_text},
     loading_spinners,
-    title_overlay::{
-        full_title_overlay, styled_button, supporting_text, title_text,
-    },
 };
 
 static EMAIL_INPUT_ID: std::sync::LazyLock<iced::widget::Id> =

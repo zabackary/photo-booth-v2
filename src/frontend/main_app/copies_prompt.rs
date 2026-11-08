@@ -6,9 +6,7 @@ use iced::{
     widget::{column, container, float, image, row, space, text},
 };
 
-use crate::frontend::title_overlay::{
-    full_title_overlay, styled_button, supporting_text, title_text,
-};
+use crate::frontend::components::{full_title_overlay, styled_button, supporting_text, title_text};
 
 fn arrow_slide_animation() -> impl anim::Animation<Item = f32> {
     anim::builder::key_frames([

@@ -6,8 +6,8 @@ use iced::{
 };
 
 use crate::frontend::{
+    components::{supporting_text, title_overlay, title_text},
     main_app::animations::LENGTH_DIVISOR,
-    title_overlay::{supporting_text, title_overlay, title_text},
 };
 
 #[derive(Debug)]

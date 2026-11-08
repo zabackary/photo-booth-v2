@@ -4,8 +4,8 @@ use iced::{
 };
 
 use crate::frontend::{
+    components::{full_title_overlay, supporting_text, title_text},
     loading_spinners,
-    title_overlay::{full_title_overlay, supporting_text, title_text},
 };
 
 const QR_CODE_QUIET_ZONE: usize = 2;

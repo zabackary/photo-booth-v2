@@ -3,7 +3,7 @@ use iced::{
     widget::{column, row, space},
 };
 
-use crate::frontend::title_overlay::{dialog_overlay, styled_button, supporting_text};
+use crate::frontend::components::{dialog_overlay, styled_button, supporting_text};
 
 #[derive(Debug, Clone)]
 pub struct Discard {}

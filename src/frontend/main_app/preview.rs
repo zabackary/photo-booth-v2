@@ -3,7 +3,7 @@ use iced::{
     widget::{column, row, space},
 };
 
-use crate::frontend::title_overlay::{keyboard_label, supporting_text, title_text};
+use crate::frontend::components::{keyboard_label, supporting_text, title_text};
 
 #[derive(Debug, Clone)]
 pub struct Preview;
