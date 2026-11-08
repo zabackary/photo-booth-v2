@@ -20,7 +20,7 @@ pub struct CameraManager {
 }
 
 /// Configration for a camera manager
-#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct CameraManagerConfig {
     /// Whether to not mirror the captured photos
     #[serde(default)]

@@ -121,14 +121,14 @@ impl Renderer {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Template {
     pub image_path: PathBuf,
     pub frames: Vec<Frame>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Frame {
     /// The x coordinate of the top-left corner of the frame, in pixels
     pub x: f32,

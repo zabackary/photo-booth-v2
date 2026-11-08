@@ -9,7 +9,7 @@ use tokio::time::Sleep;
 const DESTINATION_POLL_INTERVAL: Duration = Duration::from_millis(500);
 
 /// The copies strategy to use when printing photos
-#[derive(Default, Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CopiesStrategy {
     /// Print all copies in a single print job
