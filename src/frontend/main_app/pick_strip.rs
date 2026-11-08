@@ -22,12 +22,14 @@ pub enum PickStripMessage {
     Previous,
     Next,
     Finish,
+    Discard,
 }
 
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum PickStripAction {
     Complete { selection: usize },
+    Discard,
     Task(iced::Task<PickStripMessage>),
     None,
 }
@@ -46,6 +48,12 @@ impl PickStrip {
                     )
                 })
                 .collect(),
+        }
+    }
+
+    pub fn on_discard_cancel(&mut self) {
+        for (i, item) in self.items.iter_mut().enumerate() {
+            item.toggle_selected(i == self.selection);
         }
     }
 
@@ -75,6 +83,12 @@ impl PickStrip {
             PickStripMessage::Finish => PickStripAction::Complete {
                 selection: self.selection,
             },
+            PickStripMessage::Discard => {
+                for item in &mut self.items {
+                    item.toggle_selected(false);
+                }
+                PickStripAction::Discard
+            }
         }
     }
 
@@ -95,6 +109,13 @@ impl PickStrip {
                         | iced::keyboard::Key::Named(iced::keyboard::key::Named::Space) => {
                             Some(PickStripMessage::Finish)
                         }
+                        // Escape or q discards the current session
+                        iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape) => {
+                            Some(PickStripMessage::Discard)
+                        }
+                        iced::keyboard::Key::Character(char) if char == "q" => {
+                            Some(PickStripMessage::Discard)
+                        }
                         _ => None,
                     }
                 } else {
@@ -107,6 +128,15 @@ impl PickStrip {
                 iced::Subscription::none()
             },
         ])
+    }
+
+    /// Subscription that runs even when backgrounded by discard
+    pub fn discarding_subscription(&self) -> iced::Subscription<PickStripMessage> {
+        if self.items.iter().any(|item| item.is_animating()) {
+            iced::window::frames().map(|_| PickStripMessage::Animate)
+        } else {
+            iced::Subscription::none()
+        }
     }
 
     pub fn view(&self) -> Element<'_, PickStripMessage> {

@@ -11,6 +11,7 @@ mod animations;
 mod capture_photos;
 mod capture_photos_prepare;
 mod copies_prompt;
+mod discard;
 mod email_entry;
 mod emailing;
 mod error;
@@ -27,8 +28,8 @@ enum MainAppPage {
     CapturePhotosPrepare(capture_photos_prepare::CapturePhotosPrepare),
     CapturePhotos(capture_photos::CapturePhotos),
     Rendering(rendering::Rendering),
-    PickStrip(pick_strip::PickStrip),
-    CopiesPrompt(copies_prompt::CopiesPrompt),
+    PickStrip(pick_strip::PickStrip),          // can discard from
+    CopiesPrompt(copies_prompt::CopiesPrompt), // can discard from
     EmailEntry(email_entry::EmailEntry),
     QrCode(qr_code::QrCode),
     PrintPending(print_pending::PrintPending),
@@ -45,6 +46,7 @@ pub enum MainAppMessage {
     OnEmailed(Result<(), String>),
 
     CameraFeed(super::camera_feed::CameraMessage),
+    Discard(discard::DiscardMessage),
 
     Preview(preview::PreviewMessage),
     CapturePhotosPrepare(capture_photos_prepare::CapturePhotosPrepareMessage),
@@ -91,6 +93,7 @@ impl Session {
 pub struct MainApp {
     feed: CameraFeed,
     page: MainAppPage,
+    discard_prompt: Option<discard::Discard>,
     session: Session,
 
     manager: crate::backend::manager::BackendManager,
@@ -108,6 +111,7 @@ impl MainApp {
                 feed,
                 page: MainAppPage::Preview(preview::Preview::new()),
                 session: Session::new(config),
+                discard_prompt: None,
                 manager,
                 config,
             },
@@ -391,6 +395,10 @@ impl MainApp {
                                 MainAppAction::None
                             }
                         }
+                        pick_strip::PickStripAction::Discard => {
+                            self.discard_prompt = Some(discard::Discard::new());
+                            MainAppAction::None
+                        }
                         pick_strip::PickStripAction::Task(task) => {
                             MainAppAction::Task(task.map(MainAppMessage::PickStrip))
                         }
@@ -420,6 +428,10 @@ impl MainApp {
                                 |_| MainAppMessage::OnPrintWaitFinish,
                             );
                             MainAppAction::Task(print_task)
+                        }
+                        copies_prompt::CopiesPromptAction::Discard => {
+                            self.discard_prompt = Some(discard::Discard::new());
+                            MainAppAction::None
                         }
                         copies_prompt::CopiesPromptAction::Task(task) => {
                             MainAppAction::Task(task.map(MainAppMessage::CopiesPrompt))
@@ -581,42 +593,86 @@ impl MainApp {
                     MainAppAction::None
                 }
             }
+            MainAppMessage::Discard(message) => {
+                if let Some(discard) = &mut self.discard_prompt {
+                    match discard.update(message) {
+                        discard::DiscardAction::Confirm => {
+                            self.page = MainAppPage::Preview(preview::Preview::new());
+                            self.session = Session::new(self.config);
+                            self.discard_prompt = None;
+                            MainAppAction::None
+                        }
+                        discard::DiscardAction::Cancel => {
+                            self.discard_prompt = None;
+                            if let MainAppPage::PickStrip(pick_strip) = &mut self.page {
+                                // the pick strip needs to reset focus, so inform
+                                // it we are going back
+                                pick_strip.on_discard_cancel();
+                            }
+                            MainAppAction::None
+                        }
+                        discard::DiscardAction::Task(task) => {
+                            MainAppAction::Task(task.map(MainAppMessage::Discard))
+                        }
+                        discard::DiscardAction::None => MainAppAction::None,
+                    }
+                } else {
+                    MainAppAction::None
+                }
+            }
         }
     }
 
     pub fn subscription(&self) -> iced::Subscription<MainAppMessage> {
         iced::Subscription::batch([
             self.feed.subscription().map(MainAppMessage::CameraFeed),
-            match &self.page {
-                MainAppPage::Preview(preview) => {
-                    preview.subscription().map(MainAppMessage::Preview)
+            if let Some(discard) = &self.discard_prompt {
+                iced::Subscription::batch([
+                    discard.subscription().map(MainAppMessage::Discard),
+                    if let MainAppPage::PickStrip(pick_strip) = &self.page {
+                        pick_strip
+                            .discarding_subscription()
+                            .map(MainAppMessage::PickStrip)
+                    } else {
+                        iced::Subscription::none()
+                    },
+                ])
+            } else {
+                match &self.page {
+                    MainAppPage::Preview(preview) => {
+                        preview.subscription().map(MainAppMessage::Preview)
+                    }
+                    MainAppPage::QrCode(qr_code) => {
+                        qr_code.subscription().map(MainAppMessage::QrCode)
+                    }
+                    MainAppPage::CapturePhotosPrepare(capture_photos_prepare) => {
+                        capture_photos_prepare
+                            .subscription()
+                            .map(MainAppMessage::CapturePhotosPrepare)
+                    }
+                    MainAppPage::CapturePhotos(capture_photos) => capture_photos
+                        .subscription()
+                        .map(MainAppMessage::CapturePhotos),
+                    MainAppPage::Rendering(rendering) => {
+                        rendering.subscription().map(MainAppMessage::Rendering)
+                    }
+                    MainAppPage::PickStrip(pick_strip) => {
+                        pick_strip.subscription().map(MainAppMessage::PickStrip)
+                    }
+                    MainAppPage::CopiesPrompt(copies_prompt) => copies_prompt
+                        .subscription()
+                        .map(MainAppMessage::CopiesPrompt),
+                    MainAppPage::PrintPending(print_pending) => print_pending
+                        .subscription()
+                        .map(MainAppMessage::PrintPending),
+                    MainAppPage::EmailEntry(email_entry) => {
+                        email_entry.subscription().map(MainAppMessage::EmailEntry)
+                    }
+                    MainAppPage::Emailing(emailing) => {
+                        emailing.subscription().map(MainAppMessage::Emailing)
+                    }
+                    MainAppPage::Error(error) => error.subscription().map(MainAppMessage::Error),
                 }
-                MainAppPage::QrCode(qr_code) => qr_code.subscription().map(MainAppMessage::QrCode),
-                MainAppPage::CapturePhotosPrepare(capture_photos_prepare) => capture_photos_prepare
-                    .subscription()
-                    .map(MainAppMessage::CapturePhotosPrepare),
-                MainAppPage::CapturePhotos(capture_photos) => capture_photos
-                    .subscription()
-                    .map(MainAppMessage::CapturePhotos),
-                MainAppPage::Rendering(rendering) => {
-                    rendering.subscription().map(MainAppMessage::Rendering)
-                }
-                MainAppPage::PickStrip(pick_strip) => {
-                    pick_strip.subscription().map(MainAppMessage::PickStrip)
-                }
-                MainAppPage::CopiesPrompt(copies_prompt) => copies_prompt
-                    .subscription()
-                    .map(MainAppMessage::CopiesPrompt),
-                MainAppPage::PrintPending(print_pending) => print_pending
-                    .subscription()
-                    .map(MainAppMessage::PrintPending),
-                MainAppPage::EmailEntry(email_entry) => {
-                    email_entry.subscription().map(MainAppMessage::EmailEntry)
-                }
-                MainAppPage::Emailing(emailing) => {
-                    emailing.subscription().map(MainAppMessage::Emailing)
-                }
-                MainAppPage::Error(error) => error.subscription().map(MainAppMessage::Error),
             },
         ])
     }
@@ -716,7 +772,12 @@ impl MainApp {
             } else {
                 iced::widget::Space::new().into()
             },
-            iced::widget::bottom_right(iced::widget::text(info).size(12))
+            if let Some(discard) = &self.discard_prompt {
+                discard.view().map(MainAppMessage::Discard).into()
+            } else {
+                iced::widget::Space::new().into()
+            },
+            iced::widget::bottom(iced::widget::text(info).size(12))
                 .padding(4)
                 .into(),
         ])

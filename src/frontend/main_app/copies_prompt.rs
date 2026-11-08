@@ -37,6 +37,7 @@ pub struct CopiesPrompt {
 pub enum CopiesPromptMessage {
     ChangeCopies(i32),
     ContinuePress,
+    Discard,
     Animate,
 }
 
@@ -45,6 +46,7 @@ pub enum CopiesPromptMessage {
 pub enum CopiesPromptAction {
     Complete { copies: u32 },
     Task(iced::Task<CopiesPromptMessage>),
+    Discard,
     None,
 }
 
@@ -90,36 +92,38 @@ impl CopiesPrompt {
                 self.down_arrow_animation.update_with_time(Instant::now());
                 CopiesPromptAction::None
             }
+            CopiesPromptMessage::Discard => CopiesPromptAction::Discard,
         }
     }
 
     pub fn subscription(&self) -> iced::Subscription<CopiesPromptMessage> {
         iced::Subscription::batch([
-            iced::keyboard::listen().filter_map(|event| match event {
-                iced::keyboard::Event::KeyReleased {
-                    key:
+            iced::keyboard::listen().filter_map(|event| {
+                if let iced::keyboard::Event::KeyReleased { key, .. } = event {
+                    match key {
                         iced::keyboard::Key::Named(
                             iced::keyboard::key::Named::Enter | iced::keyboard::key::Named::Space,
-                        ),
-                    ..
-                } => Some(CopiesPromptMessage::ContinuePress),
-                iced::keyboard::Event::KeyReleased {
-                    key:
+                        ) => Some(CopiesPromptMessage::ContinuePress),
                         iced::keyboard::Key::Named(
                             iced::keyboard::key::Named::ArrowUp
                             | iced::keyboard::key::Named::ArrowRight,
-                        ),
-                    ..
-                } => Some(CopiesPromptMessage::ChangeCopies(1)),
-                iced::keyboard::Event::KeyReleased {
-                    key:
+                        ) => Some(CopiesPromptMessage::ChangeCopies(1)),
                         iced::keyboard::Key::Named(
                             iced::keyboard::key::Named::ArrowDown
                             | iced::keyboard::key::Named::ArrowLeft,
-                        ),
-                    ..
-                } => Some(CopiesPromptMessage::ChangeCopies(-1)),
-                _ => None,
+                        ) => Some(CopiesPromptMessage::ChangeCopies(-1)),
+                        // Escape or q discards the current session
+                        iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape) => {
+                            Some(CopiesPromptMessage::Discard)
+                        }
+                        iced::keyboard::Key::Character(char) if char == "q" => {
+                            Some(CopiesPromptMessage::Discard)
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
             }),
             if self.up_arrow_animation.status().is_animating()
                 || self.down_arrow_animation.status().is_animating()

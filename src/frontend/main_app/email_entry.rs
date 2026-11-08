@@ -155,7 +155,7 @@ impl EmailEntry {
                         column([
                             row([
                                 text_input(
-                                    "Enter an email",
+                                    "Type your email address...",
                                     self.emails.first().map(|s| s.as_str()).unwrap_or("")
                                 )
                                 .on_input(EmailEntryMessage::EmailInput)
@@ -165,6 +165,12 @@ impl EmailEntry {
                                 .style(|theme: &iced::Theme, status| {
                                     let mut normal = text_input::default(theme, status);
                                     normal.border.radius = 6.0.into();
+                                    normal.placeholder = theme
+                                        .extended_palette()
+                                        .background
+                                        .base
+                                        .text
+                                        .scale_alpha(0.5);
                                     normal
                                 })
                                 .padding(Padding { bottom: 10.0, left: 16.0, right: 16.0, top: 10.0 })
@@ -172,7 +178,11 @@ impl EmailEntry {
                                 space().width(6.0).into(),
                                 styled_button(
                                     "ENTER",
-                                    if is_adding { "to add" } else { "to finish" },
+                                    match (is_adding, self.emails.is_empty()) {
+                                        (true, _) => "to add",
+                                        (false, true) => "to continue without sending",
+                                        (false, false) => "to finish",
+                                    },
                                 )
                                 .on_press(EmailEntryMessage::EmailSubmit)
                                 .into(),
