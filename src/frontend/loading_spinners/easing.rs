@@ -1,7 +1,7 @@
 use iced::Point;
 
 use lyon_algorithms::measure::PathMeasurements;
-use lyon_algorithms::path::{builder::NoAttributes, path::BuilderImpl, Path};
+use lyon_algorithms::path::{Path, builder::NoAttributes, path::BuilderImpl};
 use once_cell::sync::Lazy;
 
 pub static EMPHASIZED: Lazy<Easing> = Lazy::new(|| {
@@ -52,10 +52,9 @@ impl Easing {
     }
 
     pub fn y_at_x(&self, x: f32) -> f32 {
-        let mut sampler = self.measurements.create_sampler(
-            &self.path,
-            lyon_algorithms::measure::SampleType::Normalized,
-        );
+        let mut sampler = self
+            .measurements
+            .create_sampler(&self.path, lyon_algorithms::measure::SampleType::Normalized);
         let sample = sampler.sample(x);
 
         sample.position().y
@@ -80,11 +79,7 @@ impl Builder {
     }
 
     /// Adds a quadratic bézier curve. Points must be between 0,0 and 1,1
-    pub fn quadratic_bezier_to(
-        mut self,
-        ctrl: impl Into<Point>,
-        to: impl Into<Point>,
-    ) -> Self {
+    pub fn quadratic_bezier_to(mut self, ctrl: impl Into<Point>, to: impl Into<Point>) -> Self {
         self.0
             .quadratic_bezier_to(Self::point(ctrl), Self::point(to));
 
@@ -98,11 +93,8 @@ impl Builder {
         ctrl2: impl Into<Point>,
         to: impl Into<Point>,
     ) -> Self {
-        self.0.cubic_bezier_to(
-            Self::point(ctrl1),
-            Self::point(ctrl2),
-            Self::point(to),
-        );
+        self.0
+            .cubic_bezier_to(Self::point(ctrl1), Self::point(ctrl2), Self::point(to));
 
         self
     }

@@ -9,7 +9,8 @@ use crate::frontend::{
 };
 
 const QR_CODE_QUIET_ZONE: usize = 2;
-pub const QR_CODE_VERSION: iced::widget::qr_code::Version = iced::widget::qr_code::Version::Normal(5);
+pub const QR_CODE_VERSION: iced::widget::qr_code::Version =
+    iced::widget::qr_code::Version::Normal(5);
 const QR_CODE_SIDE_LENGTH: usize = QR_CODE_QUIET_ZONE * 2 + (5 * 4 + 17);
 
 #[derive(Debug)]
@@ -83,7 +84,10 @@ impl QrCode {
     pub fn subscription(&self) -> iced::Subscription<QrCodeMessage> {
         iced::keyboard::listen().filter_map(|event| match event {
             iced::keyboard::Event::KeyReleased {
-                key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter | iced::keyboard::key::Named::Space),
+                key:
+                    iced::keyboard::Key::Named(
+                        iced::keyboard::key::Named::Enter | iced::keyboard::key::Named::Space,
+                    ),
                 ..
             } => Some(QrCodeMessage::ContinuePress),
             _ => None,
