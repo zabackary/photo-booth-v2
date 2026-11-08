@@ -152,6 +152,9 @@ pub enum PrinterBackendConfig {
         /// The media to use when printing, if any.
         #[serde(skip_serializing_if = "Option::is_none")]
         media: Option<String>,
+        /// The copies strategy to use when printing photos
+        #[serde(default, rename = "copiesStrategy")]
+        copies_strategy: super::backend::printer::cups::CopiesStrategy,
     },
     /// A mock printer backend that simulates a printer for testing and development
     #[cfg(feature = "mock")]

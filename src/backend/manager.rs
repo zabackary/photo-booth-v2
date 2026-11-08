@@ -139,9 +139,11 @@ impl BackendManager {
                     crate::config::PrinterBackendConfig::Cups {
                         ref default_printer_name,
                         ref media,
+                        ref copies_strategy,
                     } => Box::new(crate::backend::printer::cups::CupsPrinterBackend::new(
                         default_printer_name.clone(),
                         media.clone(),
+                        *copies_strategy,
                     )) as Box<dyn PrinterBackend>,
                     #[cfg(feature = "mock")]
                     crate::config::PrinterBackendConfig::Mock => {

@@ -8,18 +8,42 @@ use tokio::time::Sleep;
 
 const DESTINATION_POLL_INTERVAL: Duration = Duration::from_millis(500);
 
+/// The copies strategy to use when printing photos
+#[derive(Default, Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CopiesStrategy {
+    /// Print all copies in a single print job
+    ///
+    /// This will send the photo to the printer once and request the printer to
+    /// print multiple copies. This is faster, but some printers may not support
+    /// this.
+    #[default]
+    SingleJob,
+    /// Print each copy in a separate print job
+    ///
+    /// This will retransmit the photo to the printer for each copy which is
+    /// slower but possibly more reliable.
+    SeparateJobs,
+}
+
 /// A printer backend that utilizes CUPS to print photos
 #[derive(Debug, Clone)]
 pub struct CupsPrinterBackend {
     default_printer_name: Option<String>,
     media: Option<String>,
+    copies_strategy: CopiesStrategy,
 }
 
 impl CupsPrinterBackend {
-    pub fn new(default_printer: Option<String>, media: Option<String>) -> Self {
+    pub fn new(
+        default_printer: Option<String>,
+        media: Option<String>,
+        copies_strategy: CopiesStrategy,
+    ) -> Self {
         Self {
             default_printer_name: default_printer,
             media,
+            copies_strategy,
         }
     }
 }
@@ -34,6 +58,7 @@ impl super::PrinterBackend for CupsPrinterBackend {
                 Box::new(CupsPrinterHandle {
                     destination: d,
                     media: self.media.clone(),
+                    copies_strategy: self.copies_strategy,
                 }) as Box<dyn super::PrinterBackendHandle>
             })
             .collect())
@@ -50,6 +75,7 @@ impl super::PrinterBackend for CupsPrinterBackend {
         Ok(Some(Box::new(CupsPrinter {
             destination: default_printer,
             media: self.media.clone(),
+            copies_strategy: self.copies_strategy,
         }) as Box<dyn super::Printer>))
     }
 }
@@ -58,6 +84,7 @@ impl super::PrinterBackend for CupsPrinterBackend {
 pub struct CupsPrinterHandle {
     destination: cups_rs::Destination,
     media: Option<String>,
+    copies_strategy: CopiesStrategy,
 }
 
 impl Display for CupsPrinterHandle {
@@ -72,7 +99,8 @@ impl super::PrinterBackendHandle for CupsPrinterHandle {
         Ok(Box::new(CupsPrinter {
             destination: self.destination.clone(),
             media: self.media.clone(),
-        }))
+            copies_strategy: self.copies_strategy,
+        }) as Box<dyn super::Printer>)
     }
 }
 
@@ -80,6 +108,7 @@ impl super::PrinterBackendHandle for CupsPrinterHandle {
 pub struct CupsPrinter {
     destination: cups_rs::Destination,
     media: Option<String>,
+    copies_strategy: CopiesStrategy,
 }
 
 #[async_trait::async_trait]
@@ -109,44 +138,64 @@ impl super::Printer for CupsPrinter {
             options
         };
 
-        // submit one single-copy job per copy rather than using the copies
-        // option, waiting for each to finish before sending the next
-        for copy in 1..=copies {
-            let filename = format!("cups_print_{}_{}.jpg", timestamp, copy);
-            let job = cups_rs::create_job_with_options(&self.destination, &filename, &options)
-                .context("failed to create job")?;
-            job.submit_data(&encoded, cups_rs::job::FORMAT_JPEG, &filename)?;
-
-            log::debug!(
-                "Print job {}/{} submitted to CUPS with ID: {}",
-                copy,
-                copies,
-                job.id
-            );
-
-            // wait for the job to complete by polling the printer state
-            match wait_for_print_job_completion(&job).await {
-                Ok(info) => {
-                    if info.status == cups_rs::JobStatus::Completed {
-                        log::info!(
-                            "CUPS print job {}/{} completed with status: {}",
-                            copy,
-                            copies,
-                            info.status
-                        );
-                    } else {
-                        log::error!("CUPS print job failed with status: {}", info.status);
-                        anyhow::bail!("print job failed with status: {}", info.status);
-                    }
+        match self.copies_strategy {
+            CopiesStrategy::SingleJob => {
+                log::debug!("Submitting single job for {} copies to CUPS", copies);
+                self.print(
+                    &encoded,
+                    &format!("cups_print_{}.jpg", timestamp),
+                    &options.copies(copies),
+                )
+                .await
+            }
+            CopiesStrategy::SeparateJobs => {
+                for copy in 1..=copies {
+                    log::debug!("Submitting copy {}/{} to CUPS", copy, copies);
+                    self.print(
+                        &encoded,
+                        &format!("cups_print_{}_{}.jpg", timestamp, copy),
+                        &options,
+                    )
+                    .await?;
                 }
-                Err(e) => {
-                    log::error!("Failed to wait for CUPS print job completion: {:?}", e);
-                    anyhow::bail!("failed to wait for print job completion: {:?}", e);
-                }
+                Ok(())
             }
         }
+    }
+}
 
-        Ok(())
+impl CupsPrinter {
+    async fn print(
+        &mut self,
+        encoded: &[u8],
+        filename: &str,
+        options: &cups_rs::PrintOptions,
+    ) -> Result<(), anyhow::Error> {
+        let job = cups_rs::create_job_with_options(&self.destination, filename, options)
+            .context("failed to create job")?;
+        job.submit_data(encoded, cups_rs::job::FORMAT_JPEG, filename)?;
+        log::trace!(
+            "Dispatched CUPS print job to dest {} (id={})",
+            job.dest_name,
+            job.id
+        );
+
+        // wait for the job to complete by polling the printer state
+        match wait_for_print_job_completion(&job).await {
+            Ok(info) => {
+                if info.status == cups_rs::JobStatus::Completed {
+                    log::trace!("CUPS print job {} (id={}) completed", filename, job.id);
+                    Ok(())
+                } else {
+                    log::error!("CUPS print job failed with status: {}", info.status);
+                    anyhow::bail!("print job failed with status: {}", info.status);
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to wait for CUPS print job completion: {:?}", e);
+                anyhow::bail!("failed to wait for print job completion: {:?}", e);
+            }
+        }
     }
 }
 
