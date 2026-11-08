@@ -148,10 +148,10 @@ impl MainApp {
                 }
                 Err(err) => {
                     log::error!("Error rendering photos: {:?}", err);
-                    self.page = MainAppPage::Error(error::Error::new(format!(
-                        "Failed to render photos: {}",
-                        err
-                    )));
+                    self.page = MainAppPage::Error(error::Error::new(
+                        "We were unable to generate your photos.".to_string(),
+                        err,
+                    ));
                     MainAppAction::None
                 }
             },
@@ -168,10 +168,11 @@ impl MainApp {
                 }
                 Err(err) => {
                     log::error!("Error uploading strip: {:?}", err);
-                    self.page = MainAppPage::Error(error::Error::new(format!(
-                        "Failed to upload strip: {}",
-                        err
-                    )));
+                    self.page = MainAppPage::Error(error::Error::new(
+                        "Your photos could not be updated. Perhaps there is no internet?"
+                            .to_string(),
+                        err,
+                    ));
                     MainAppAction::None
                 }
             },
@@ -203,10 +204,11 @@ impl MainApp {
                 }
                 Err(err) => {
                     log::error!("Error sending email: {:?}", err);
-                    self.page = MainAppPage::Error(error::Error::new(format!(
-                        "Failed to send email: {}",
-                        err
-                    )));
+                    self.page = MainAppPage::Error(error::Error::new(
+                        "We were unable to send your email. Perhaps there is no internet?"
+                            .to_string(),
+                        err,
+                    ));
                     MainAppAction::None
                 }
             },

@@ -9,6 +9,7 @@ impl super::EmailBackend for MockEmailBackend {
         log::info!("Storage handle: {:?}", payload.storage_handle);
         log::info!("Emails: {:?}", payload.emails);
         log::info!("Palette: {:?}", payload.palette);
+        return Err(anyhow::anyhow!("failed to send request: network is down"));
         Ok(())
     }
 }

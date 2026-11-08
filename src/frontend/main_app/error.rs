@@ -3,11 +3,14 @@ use iced::{
     widget::{column, space},
 };
 
-use crate::frontend::title_overlay::{supporting_text, title_overlay, title_text};
+use crate::frontend::title_overlay::{
+    dialog_overlay, supporting_text, supporting_text_small, title_overlay, title_text,
+};
 
 #[derive(Debug, Clone)]
 pub struct Error {
-    message: String,
+    message_friendly: String,
+    message_internal: String,
 }
 
 #[derive(Debug, Clone)]
@@ -24,8 +27,11 @@ pub enum ErrorAction {
 }
 
 impl Error {
-    pub fn new(message: String) -> Self {
-        Self { message }
+    pub fn new(friendly: String, internal: String) -> Self {
+        Self {
+            message_friendly: friendly,
+            message_internal: format!("error code: {}", internal),
+        }
     }
 
     pub fn update(&mut self, message: ErrorMessage) -> ErrorAction {
@@ -37,7 +43,10 @@ impl Error {
     pub fn subscription(&self) -> iced::Subscription<ErrorMessage> {
         iced::keyboard::listen().filter_map(|event| match event {
             iced::keyboard::Event::KeyReleased {
-                key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Space),
+                key:
+                    iced::keyboard::Key::Named(
+                        iced::keyboard::key::Named::Space | iced::keyboard::key::Named::Enter,
+                    ),
                 ..
             } => Some(ErrorMessage::Close),
             _ => None,
@@ -45,14 +54,15 @@ impl Error {
     }
 
     pub fn view(&self) -> Element<'_, ErrorMessage> {
-        title_overlay(
+        dialog_overlay(
+            "Uh oh. Something went wrong.",
             column([
-                title_text("Uh oh. Something went wrong.").into(),
-                supporting_text(&self.message).into(),
-                supporting_text("Press [SPACE] to close this message.").into(),
+                supporting_text(&self.message_friendly).into(),
                 space().height(12.0).into(),
+                supporting_text_small(&self.message_internal).into(),
+                space().height(12.0).into(),
+                supporting_text("Press [SPACE] to close this message.").into(),
             ]),
-            false,
         )
     }
 }

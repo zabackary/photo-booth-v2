@@ -88,7 +88,10 @@ impl PrintPending {
                 .center(Length::Fill)
                 .into(),
                 title_text("Waiting for a printer to be ready").into(),
-                supporting_text("Hold tight...").into(),
+                supporting_text(
+                    "We'll start printing soon, but the printer is currently busy. Hold tight...",
+                )
+                .into(),
                 space().height(12.0).into(),
                 progress_bar(0.0..=1.0, value).girth(8.0).into(),
             ]),

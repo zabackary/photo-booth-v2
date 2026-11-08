@@ -131,7 +131,7 @@ impl super::EmailBackend for GappsScriptWebhookEmailBackend {
                 .json(&body)
                 .send()
                 .await
-                .with_context(|| "failed to send email request to Google Apps Script webhook")?;
+                .with_context(|| "failed to send email request to webhook")?;
             let email_response: PartialEmailMetadata = res.json().await.with_context(
                 || "failed to parse email response from Google Apps Script webhook",
             )?;

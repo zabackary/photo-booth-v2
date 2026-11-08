@@ -8,6 +8,20 @@ mod backend;
 mod config;
 mod frontend;
 
+static FONT_REGULAR: iced::font::Font = iced::font::Font::with_name("Montserrat");
+static FONT_BOLD: iced::font::Font = iced::font::Font {
+    family: iced::font::Family::Name("Montserrat"),
+    weight: iced::font::Weight::Bold,
+    stretch: iced::font::Stretch::Normal,
+    style: iced::font::Style::Normal,
+};
+static FONT_ITALIC: iced::font::Font = iced::font::Font {
+    family: iced::font::Family::Name("Montserrat"),
+    weight: iced::font::Weight::Normal,
+    stretch: iced::font::Stretch::Normal,
+    style: iced::font::Style::Italic,
+};
+
 #[derive(Parser, Debug)]
 #[command(name = "photo-booth-v2")]
 #[command(version, about = "A photo booth application", long_about = None)]
