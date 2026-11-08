@@ -98,9 +98,9 @@ pub fn dialog_overlay<'a, Message: 'a>(
                 theme
                     .extended_palette()
                     .background
-                    .base
+                    .strong
                     .color
-                    .scale_alpha(0.7),
+                    .scale_alpha(0.9),
             ))
             .border(iced::border::rounded(24.0))
         }),
