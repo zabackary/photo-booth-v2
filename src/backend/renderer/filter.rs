@@ -1,7 +1,7 @@
 use image::buffer::ConvertBuffer as _;
 
 /// A filter to apply to a photo when rendering
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "filter", rename_all = "lowercase")]
 pub enum Filter {
     /// A filter that applies a hue rotation to the photo
