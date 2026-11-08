@@ -125,14 +125,12 @@ impl MainApp {
                     blur: 1.0,
                     aspect_ratio: Some(self.config.camera.preview_aspect_ratio),
                     mirror: true,
-                    ..Default::default()
                 }
             } else {
                 CameraFeedOptions {
                     blur: 20.0, // 1/20th the resolution
                     aspect_ratio: None,
                     mirror: true,
-                    ..Default::default()
                 }
             },
         );

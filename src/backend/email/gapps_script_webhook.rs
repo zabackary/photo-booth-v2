@@ -36,9 +36,6 @@ impl GappsScriptWebhookEmailBackend {
             endpoint,
         }
     }
-
-    pub const OAUTH_SCOPES: &'static [&'static str] =
-        crate::backend::storage::google_drive::GoogleDriveStorageBackend::OAUTH_SCOPES;
 }
 
 /// Utility function to convert an [`iced::Color`] to a CSS hex string
