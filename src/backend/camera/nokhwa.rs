@@ -177,7 +177,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    #[ignore = "This test requires hardware and fails in CI"]
+    #[ignore = "requires hardware not present in CI"]
     async fn test_initialize_nokhwa() -> Result<(), anyhow::Error> {
         initialize_nokhwa().await?;
         Ok(())

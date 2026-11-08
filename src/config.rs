@@ -264,3 +264,46 @@ impl From<ThemeConfig> for iced::theme::palette::Palette {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_theme_config_to_palette() {
+        let theme_config = ThemeConfig {
+            background: hex_color::HexColor::rgb(0, 0, 0),
+            text: hex_color::HexColor::rgb(255, 255, 255),
+            primary: hex_color::HexColor::rgb(0, 255, 0),
+            success: hex_color::HexColor::rgb(0, 0, 255),
+            danger: hex_color::HexColor::rgb(255, 0, 0),
+            warning: hex_color::HexColor::rgb(255, 255, 0),
+        };
+        let palette: iced::theme::palette::Palette = theme_config.into();
+        assert_eq!(palette.background, iced::Color::from_rgb(0.0, 0.0, 0.0));
+        assert_eq!(palette.text, iced::Color::from_rgb(1.0, 1.0, 1.0));
+        assert_eq!(palette.primary, iced::Color::from_rgb(0.0, 1.0, 0.0));
+        assert_eq!(palette.success, iced::Color::from_rgb(0.0, 0.0, 1.0));
+        assert_eq!(palette.danger, iced::Color::from_rgb(1.0, 0.0, 0.0));
+        assert_eq!(palette.warning, iced::Color::from_rgb(1.0, 1.0, 0.0));
+    }
+
+    #[test]
+    #[cfg(all(
+        feature = "mock",
+        feature = "camera_nokhwa",
+        feature = "storage_local_filesystem",
+        feature = "filter_skin_softening"
+    ))]
+    fn test_example_config_parses() {
+        let config_str = include_str!("../config.example.json");
+        let config: Config =
+            serde_json::from_str(config_str).expect("Failed to parse config.example.json");
+        assert_eq!(config.photos_per_strip, 4);
+        assert_eq!(
+            config.theme.background,
+            hex_color::HexColor::rgb(187, 189, 213)
+        );
+        assert_eq!(config.theme.text, hex_color::HexColor::rgb(255, 246, 221));
+    }
+}
