@@ -1,6 +1,3 @@
-mod border_radius;
-
-use iced::border::Radius;
 use iced::widget::image::Handle;
 use iced::{ContentFit, Length, Task};
 use std::sync::{Arc, Mutex};
@@ -31,7 +28,6 @@ impl std::hash::Hash for HashableManager {
 
 #[derive(Debug, Clone, Copy)]
 pub struct CameraFeedOptions {
-    pub radius: Radius,
     pub mirror: bool,
     pub aspect_ratio: Option<f32>,
     pub blur: f32,
@@ -40,7 +36,6 @@ pub struct CameraFeedOptions {
 impl Default for CameraFeedOptions {
     fn default() -> Self {
         Self {
-            radius: Radius::from(0),
             mirror: false,
             aspect_ratio: None,
             blur: 0.0,
@@ -165,9 +160,6 @@ fn image_postprocessing(
     if options.mirror {
         image::imageops::flip_horizontal_in_place(&mut frame);
     }
-
-    // apply border radius
-    border_radius::round(&mut frame, &options.radius);
 
     // apply blur
     if options.blur > 0.0 {
