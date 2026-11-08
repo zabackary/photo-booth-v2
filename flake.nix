@@ -151,6 +151,11 @@
               ]
               ++ buildInputs;
 
+              # Some FHS wrappers (e.g. Zed) export NIX_CFLAGS_LINK which make
+              # the linker link against the host glibc instead of the one in
+              # this flake. Unset it to avoid that.
+              NIX_CFLAGS_LINK = "";
+
               RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
               LD_LIBRARY_PATH = libPath;
             }
